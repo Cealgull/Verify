@@ -127,22 +127,22 @@ func (m *EmailManager) Sign(account string) (int, error) {
 	code := rand.Intn(6)
 	content := fmt.Sprintf(m.template, code)
 	if !m.accexp.Match([]byte(account)) {
-		return -1, fmt.Errorf("Invalid account. Do you really want to hijack the services?")
+		return -1, fmt.Errorf("Err: Account format not valid.")
 	}
 
 	ctx := context.Background()
 	err := m.rclient.Get(ctx, account).Err()
 
 	if err != redis.Nil {
-		return -1, fmt.Errorf("Verification code has already been sent. Please wait for expiration.")
+		return -1, fmt.Errorf("Err: Verication Code has already been sent. Preventing Duplicates...")
 	}
 
 	err = m.dialer.send(account, content)
 	if err != nil {
-		return -1, nil
+		return -1, err
 	}
 
-	err = m.rclient.Set(ctx, account, fmt.Sprintf("%06d", code), time.Duration(3)*time.Minute).Err()
+	err = m.rclient.Set(ctx, account, fmt.Sprintf("%06d", code), time.Duration(5)*time.Minute).Err()
 
 	if err != nil {
 		return -1, err
@@ -154,11 +154,11 @@ func (m *EmailManager) Sign(account string) (int, error) {
 func (m *EmailManager) Verify(account string, guess string) (bool, error) {
 
 	if !m.codeexp.Match([]byte(guess)) {
-		return false, fmt.Errorf("Guessing code format not valid.")
+		return false, fmt.Errorf("Err: Guessing code format not valid.")
 	}
 
 	if !m.accexp.Match([]byte(account)) {
-		return false, fmt.Errorf("Invalid account. Do you really want to hijack the services?")
+		return false, fmt.Errorf("Err: Account format not valid.")
 	}
 
 	ctx := context.Background()
@@ -166,7 +166,7 @@ func (m *EmailManager) Verify(account string, guess string) (bool, error) {
 	err := cmd.Err()
 
 	if err == redis.Nil {
-		return false, fmt.Errorf("Account not found.")
+		return false, fmt.Errorf("Err: Account is not valid anymore. Please re-sign the verification code")
 	} else if err != nil {
 		return false, err
 	}
