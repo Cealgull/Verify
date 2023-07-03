@@ -20,9 +20,9 @@ type SignManager struct {
 }
 
 type SignToken struct {
-	pubs anon.Set
-	priv kyber.Scalar
-	idx  int
+	Pubs anon.Set     `json:"pubs"`
+	Priv kyber.Scalar `json:"priv"`
+	Idx  int          `json:"idx"`
 }
 
 func NewSignManager(nr_mem int, cap int) (*SignManager, error) {
@@ -90,9 +90,9 @@ func (m *SignManager) Dispatch() SignToken {
 	copy(pubs, m.pubs)
 
 	t := SignToken{
-		pubs: pubs,
-		priv: m.priv[idx],
-		idx:  idx,
+		Pubs: pubs,
+		Priv: m.priv[idx],
+		Idx:  idx,
 	}
 
 	m.mtx.Unlock()
