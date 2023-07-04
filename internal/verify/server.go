@@ -2,7 +2,6 @@ package verify
 
 import (
 	"encoding/hex"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -15,8 +14,7 @@ import (
 )
 
 type VerificationServer struct {
-	host string
-	port string
+	addr string
 	ec   *echo.Echo
 	em   *email.EmailManager
 	fm   *fabric.FabricManager
@@ -39,10 +37,10 @@ type RegisterRequest struct {
 	Secret string `json:"secret"`
 }
 
-func New(host string, port string, em *email.EmailManager, fm *fabric.FabricManager, km *keyset.KeyManager, ts *turnstile.Turnstile) *VerificationServer {
+func NewVerificationServer(addr string, em *email.EmailManager, fm *fabric.FabricManager, km *keyset.KeyManager, ts *turnstile.Turnstile) *VerificationServer {
 
 	ec := echo.New()
-	v := VerificationServer{host, port, ec, em, fm, km, ts}
+	v := VerificationServer{addr, ec, em, fm, km, ts}
 	v.ec.Use(middleware.Logger())
 	v.ec.Use(middleware.Recover())
 	v.ec.POST("/auth/verify", v.verify)
@@ -141,5 +139,5 @@ func (v *VerificationServer) sign(c echo.Context) error {
 }
 
 func (s *VerificationServer) Start() {
-	s.ec.Logger.Fatal(s.ec.Start(fmt.Sprintf("%s:%s", s.host, s.port)))
+	s.ec.Logger.Fatal(s.ec.Start(s.addr))
 }

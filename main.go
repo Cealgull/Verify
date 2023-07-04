@@ -85,8 +85,8 @@ func main() {
 	turnstileMap := viper.GetStringMapString("turnstile")
 	ts := turnstile.NewTurnstile(turnstileMap["secret"])
 
-	serverMap := viper.GetStringMap("server")
-	server := verify.New(serverMap["host"].(string), serverMap["port"].(string), em, fm, km, ts)
+	verifyMap := viper.GetStringMap("verify")
+	server := verify.NewVerificationServer(verifyMap["addr"].(string), em, fm, km, ts)
 
 	server.Start()
 }
