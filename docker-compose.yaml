@@ -1,0 +1,14 @@
+version: '3.0'
+
+services:
+    verify:
+        build: .
+        ports:
+            - 443:443
+        volumes:
+            - ./configs/ccp.yaml:/etc/cealgull-verify/ccp.yaml
+            - ./configs/config.yaml:/etc/cealgull-verify/config.yaml
+    redis:
+        image: redis
+        ports:
+            - 5479:5479
