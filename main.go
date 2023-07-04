@@ -14,7 +14,11 @@ func main() {
 
 	logger, _ := zap.NewProduction()
 
-	viper.AddConfigPath("/etc/cealgull-verify/config.yaml")
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("/etc/cealgull-verify.")
+	viper.AddConfigPath("./configs/")
+	viper.AddConfigPath(".")
 
 	err := viper.ReadInConfig()
 
@@ -22,39 +26,67 @@ func main() {
 		logger.Panic(err.Error())
 	}
 
-	dialer, err := email.NewEmailDialer("example.com", "org.com", "localhost:25", "Subject%s")
+	emailMap := viper.GetStringMap("email")
+	dialerMap := emailMap["dialer"].(map[string]interface{})
+
+	dialer, err := email.NewEmailDialer(
+		email.WithFrom(dialerMap["account"].(string),
+			dialerMap["fromdom"].(string),
+			dialerMap["secret"].(string)),
+		email.WithDialerTemplate(dialerMap["template"].(string)),
+		email.WithToDom(dialerMap["todom"].(string)),
+		email.WithClient(dialerMap["server"].(string)))
 
 	if err != nil {
 		logger.Panic(err.Error())
 	}
 
-	em, err := email.New(
-		email.WithCodeExp("\\d{6}"),
-		email.WithRedis("localhost", "6379", "CealgullVerify", "CealgullVerify-secret", 0),
+	redisMap := emailMap["redis"].(map[string]interface{})
+
+	if err != nil {
+		logger.Panic(err.Error())
+	}
+
+	em, err := email.NewEmailManager(
+		email.WithCodeExp(emailMap["coderule"].(string)),
+		email.WithRedis(redisMap["server"].(string),
+			redisMap["user"].(string),
+			redisMap["secret"].(string),
+			redisMap["db"].(int)),
 		email.WithEmailDialer(dialer),
-		email.WithAccExp("[a-zA-Z0-9-_\\.]{50}"),
+		email.WithAccExp(emailMap["accrule"].(string)),
+		email.WithEmailTemplate(emailMap["template"].(string)),
 	)
 
 	if err != nil {
 		logger.Panic(err.Error())
 	}
+
+	fabricMap := viper.GetStringMapString("fabric")
 
 	fm, err := fabric.New(
-		fabric.WithOrg("Org1"),
-		fabric.WithCAHost("CAOrg1.example.com"),
+		fabric.WithOrg(fabricMap["org"]),
+		fabric.WithCAHost(fabricMap["cahost"]),
+		fabric.WithConfiguration(fabricMap["cacerts"]),
 	)
 
 	if err != nil {
 		logger.Panic(err.Error())
 	}
 
-	sm, err := sign.NewSignManager(16, 1024)
+	signMap := viper.GetStringMap("sign")
+	sm, err := sign.NewSignManager(signMap["nr_mem"].(int),
+		signMap["cap"].(int))
 
 	if err != nil {
 		logger.Panic(err.Error())
 	}
-	ts := turnstile.NewTurnstile("dummy")
 
-	server := verify.New("localhost", "8080", em, fm, sm, ts)
+	turnstileMap := viper.GetStringMapString("turnstile")
+	ts := turnstile.NewTurnstile(turnstileMap["secret"])
+
+	serverMap := viper.GetStringMap("server")
+	server := verify.New(serverMap["host"].(string), serverMap["port"].(string), em, fm, sm, ts)
+
 	server.Start()
 }

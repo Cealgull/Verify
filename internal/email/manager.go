@@ -8,25 +8,64 @@ import (
 	"strings"
 	"time"
 
+	"github.com/emersion/go-sasl"
 	"github.com/emersion/go-smtp"
 	"github.com/redis/go-redis/v9"
 )
 
 type EmailDialer struct {
-	from      string
-	dstdomain string
-	template  string
-	client    *smtp.Client
+	from     string
+	secret   string
+	todom    string
+	template string
+	client   *smtp.Client
 }
 
-func NewEmailDialer(fromdom string, todom string, addr string, template string) (*EmailDialer, error) {
-	c, err := smtp.Dial(addr)
-	if err != nil {
-		return nil, err
+type DialerOption func(dialer *EmailDialer) error
+
+func WithDialerTemplate(template string) DialerOption {
+	return func(dialer *EmailDialer) error {
+		dialer.template = template
+		return nil
 	}
-	from := fmt.Sprintf("%s@%s", "noreply", fromdom)
-	d := EmailDialer{from, todom, template, c}
-	return &d, nil
+}
+
+func WithClient(addr string) DialerOption {
+	return func(dialer *EmailDialer) error {
+		c, err := smtp.Dial(addr)
+		if err != nil {
+			return err
+		}
+		dialer.client = c
+		return nil
+	}
+}
+
+func WithFrom(account string, fromdom string, secret string) DialerOption {
+	return func(dialer *EmailDialer) error {
+		from := fmt.Sprintf("%s@%s", account, fromdom)
+		dialer.from = from
+		dialer.secret = secret
+		return nil
+	}
+}
+
+func WithToDom(todom string) DialerOption {
+	return func(dialer *EmailDialer) error {
+		dialer.todom = todom
+		return nil
+	}
+}
+
+func NewEmailDialer(options ...DialerOption) (*EmailDialer, error) {
+	var dialer EmailDialer
+	for _, option := range options {
+		err := option(&dialer)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &dialer, nil
 }
 
 func (d *EmailDialer) close() {
@@ -34,59 +73,55 @@ func (d *EmailDialer) close() {
 }
 
 func (d *EmailDialer) send(account string, content string) error {
-	to := fmt.Sprintf("%s@%s", account, d.dstdomain)
+	to := fmt.Sprintf("%s@%s", account, d.todom)
 	msg := fmt.Sprintf(d.template, to, content)
-	err := d.client.SendMail(d.from, []string{to}, strings.NewReader(msg))
+	auth := sasl.NewPlainClient("", d.from, d.secret)
+	err := d.client.Auth(auth)
+	if err != nil {
+		return err
+	}
+	err = d.client.SendMail(d.from, []string{to}, strings.NewReader(msg))
 	return err
 }
 
 type EmailManager struct {
 	dialer   *EmailDialer
-	rclient  *redis.Client
-	codeexp  *regexp.Regexp
-	accexp   *regexp.Regexp
-	template string
-}
-
-type ManagerOption struct {
-	codeexp  *regexp.Regexp
-	accexp   *regexp.Regexp
 	redis    *redis.Client
-	dialer   *EmailDialer
+	codeexp  *regexp.Regexp
+	accexp   *regexp.Regexp
 	template string
 }
 
-type Option func(opts *ManagerOption) error
+type ManagerOption func(mgr *EmailManager) error
 
-func WithTemplate(template string) Option {
-	return func(opts *ManagerOption) error {
-		opts.template = template
+func WithEmailTemplate(template string) ManagerOption {
+	return func(mgr *EmailManager) error {
+		mgr.template = template
 		return nil
 	}
 }
 
-func WithCodeExp(rule string) Option {
-	return func(opts *ManagerOption) error {
+func WithCodeExp(rule string) ManagerOption {
+	return func(mgr *EmailManager) error {
 		var err error
-		opts.codeexp, err = regexp.Compile(rule)
+		mgr.codeexp, err = regexp.Compile(rule)
 		return err
 	}
 }
 
-func WithAccExp(rule string) Option {
-	return func(opts *ManagerOption) error {
+func WithAccExp(rule string) ManagerOption {
+	return func(mgr *EmailManager) error {
 		var err error
-		opts.accexp, err = regexp.Compile(rule)
+		mgr.accexp, err = regexp.Compile(rule)
 		return err
 	}
 }
 
-func WithRedis(host string, port string, user string, secret string, index int) Option {
-	return func(opts *ManagerOption) error {
-		opts.redis = redis.NewClient(
+func WithRedis(addr string, user string, secret string, index int) ManagerOption {
+	return func(mgr *EmailManager) error {
+		mgr.redis = redis.NewClient(
 			&redis.Options{
-				Addr:     fmt.Sprintf("%s:%s", host, port),
-				Username: user,
+				Addr:     addr,
 				Password: secret,
 				DB:       index,
 			},
@@ -95,54 +130,49 @@ func WithRedis(host string, port string, user string, secret string, index int) 
 	}
 }
 
-func WithEmailDialer(dialer *EmailDialer) Option {
-	return func(opts *ManagerOption) error {
-		opts.dialer = dialer
+func WithEmailDialer(dialer *EmailDialer) ManagerOption {
+	return func(mgr *EmailManager) error {
+		mgr.dialer = dialer
 		return nil
 	}
 }
 
-func new(opts *ManagerOption) EmailManager {
-	return EmailManager{
-		dialer:   opts.dialer,
-		accexp:   opts.accexp,
-		codeexp:  opts.codeexp,
-		template: opts.template,
-	}
-}
-
-func New(opts ...Option) (*EmailManager, error) {
-	var option ManagerOption
-	for _, f := range opts {
-		err := f(&option)
+func NewEmailManager(options ...ManagerOption) (*EmailManager, error) {
+	var mgr EmailManager
+	for _, option := range options {
+		err := option(&mgr)
 		if err != nil {
 			return nil, err
 		}
 	}
-	m := new(&option)
-	return &m, nil
+	return &mgr, nil
 }
 
 func (m *EmailManager) Sign(account string) (int, error) {
-	code := rand.Intn(6)
+	code := rand.Intn(1000000)
 	content := fmt.Sprintf(m.template, code)
 	if !m.accexp.Match([]byte(account)) {
 		return -1, fmt.Errorf("Err: Account format not valid.")
 	}
 
+	fmt.Println("Checking duplicates")
 	ctx := context.Background()
-	err := m.rclient.Get(ctx, account).Err()
+	err := m.redis.Get(ctx, account).Err()
 
 	if err != redis.Nil {
 		return -1, fmt.Errorf("Err: Verication Code has already been sent. Preventing Duplicates...")
 	}
 
 	err = m.dialer.send(account, content)
+
+	fmt.Println("Sending email")
+
 	if err != nil {
 		return -1, err
 	}
 
-	err = m.rclient.Set(ctx, account, fmt.Sprintf("%06d", code), time.Duration(5)*time.Minute).Err()
+	fmt.Println("Setting Code")
+	err = m.redis.Set(ctx, account, fmt.Sprintf("%06d", code), time.Duration(5)*time.Minute).Err()
 
 	if err != nil {
 		return -1, err
@@ -162,7 +192,7 @@ func (m *EmailManager) Verify(account string, guess string) (bool, error) {
 	}
 
 	ctx := context.Background()
-	cmd := m.rclient.GetDel(ctx, account)
+	cmd := m.redis.GetDel(ctx, account)
 	err := cmd.Err()
 
 	if err == redis.Nil {
