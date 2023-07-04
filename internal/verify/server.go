@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"strconv"
+	"net/http"
 
 	"github.com/Cealgull/Verify/internal/email"
 	"github.com/Cealgull/Verify/internal/fabric"
@@ -26,7 +26,7 @@ type VerificationServer struct {
 
 type EmailRequest struct {
 	Account string `json:"account"`
-	Code    int    `json:"code,omitempty"`
+	Code    string `json:"code"`
 }
 
 type CodeMessage struct {
@@ -55,17 +55,19 @@ func (v *VerificationServer) verify(c echo.Context) error {
 	var req EmailRequest
 
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(500, CodeMessage{500, err.Error()})
+		return c.JSON(http.StatusInternalServerError,
+			CodeMessage{http.StatusInternalServerError, err.Error()})
 	}
-	success, err := v.em.Verify(req.Account, strconv.Itoa(req.Code))
+	success, err := v.em.Verify(req.Account, req.Code)
 	if err != nil {
-		return c.JSON(500, CodeMessage{500, err.Error()})
+		return c.JSON(http.StatusInternalServerError,
+			CodeMessage{http.StatusInternalServerError, err.Error()})
 	}
 	if success {
-		return c.JSON(200, v.sm.Dispatch())
+		return c.JSON(http.StatusOK, v.sm.Dispatch())
 	} else {
-		return c.JSON(404, CodeMessage{
-			404,
+		return c.JSON(http.StatusNotFound, CodeMessage{
+			http.StatusNotFound,
 			"Err: Verification Failed for current account",
 		})
 	}
@@ -75,49 +77,60 @@ func (v *VerificationServer) register(c echo.Context) error {
 	var req RegisterRequest
 
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(500, CodeMessage{500, err.Error()})
+		return c.JSON(http.StatusBadRequest,
+			CodeMessage{http.StatusBadRequest, err.Error()})
 	}
 
 	signature, err := hex.DecodeString(c.Request().Header.Get("Signature"))
 
 	if err != nil || signature == nil {
-		return c.JSON(500, CodeMessage{500, "Err: Signature not found in headers"})
+		return c.JSON(http.StatusBadRequest,
+			CodeMessage{http.StatusBadRequest,
+				"Err: Signature not found in headers"})
 	}
 
 	body, err := io.ReadAll(c.Request().Body)
 
 	if err != nil {
-		return c.JSON(500, CodeMessage{500, err.Error()})
+		return c.JSON(http.StatusInternalServerError,
+			CodeMessage{http.StatusInternalServerError, err.Error()})
 	}
-
 	success, err := v.sm.Verify(body, []byte(signature))
 
 	if err != nil {
-		return c.JSON(500, CodeMessage{500, err.Error()})
+		return c.JSON(http.StatusInternalServerError,
+			CodeMessage{http.StatusInternalServerError, err.Error()})
 	}
 
 	if success {
-		return c.JSON(200, CodeMessage{200, "OK"})
+		return c.JSON(http.StatusOK,
+			CodeMessage{http.StatusOK, "OK"})
 	} else {
-		return c.JSON(500, CodeMessage{500, "Err: Signature not matching the content"})
+		return c.JSON(http.StatusInternalServerError,
+			CodeMessage{http.StatusInternalServerError,
+				"Err: Signature not matching the content"})
 	}
 
 }
 
 func (v *VerificationServer) sign(c echo.Context) error {
 
-	var req EmailRequest
+	req := new(EmailRequest)
 
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(500, CodeMessage{500, err.Error()})
+	if err := c.Bind(req); err != nil {
+		return c.JSON(http.StatusInternalServerError,
+			CodeMessage{http.StatusInternalServerError, err.Error()})
 	}
+
 	_, err := v.em.Sign(req.Account)
 
 	if err != nil {
-		return c.JSON(500, CodeMessage{500, err.Error()})
+		return c.JSON(http.StatusInternalServerError,
+			CodeMessage{http.StatusInternalServerError, err.Error()})
 	}
 
-	return c.JSON(200, CodeMessage{200, "OK"})
+	return c.JSON(http.StatusOK,
+		CodeMessage{http.StatusOK, "OK"})
 
 }
 
