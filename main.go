@@ -64,7 +64,7 @@ func main() {
 
 	fabricMap := viper.GetStringMapString("fabric")
 
-	fm, err := fabric.New(
+	fm, err := fabric.NewFabricManager(
 		fabric.WithOrg(fabricMap["org"]),
 		fabric.WithCAHost(fabricMap["cahost"]),
 		fabric.WithConfiguration(fabricMap["cacerts"]),

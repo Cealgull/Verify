@@ -40,7 +40,7 @@ func WithOrg(org string) Option {
 	}
 }
 
-func New(opts ...Option) (*FabricManager, error) {
+func NewFabricManager(opts ...Option) (*FabricManager, error) {
 	option := FabricOptions{}
 	for _, f := range opts {
 		err := f(&option)
