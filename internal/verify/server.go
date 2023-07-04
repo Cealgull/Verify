@@ -58,20 +58,24 @@ func (v *VerificationServer) verify(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError,
 			CodeMessage{http.StatusInternalServerError, err.Error()})
 	}
+
 	success, err := v.em.Verify(req.Account, req.Code)
+
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError,
 			CodeMessage{http.StatusInternalServerError, err.Error()})
 	}
+
 	if success {
 		token := v.sm.Dispatch()
-		return c.JSON(http.StatusOK, &token)
+		return c.JSON(http.StatusOK, token)
 	} else {
 		return c.JSON(http.StatusNotFound, CodeMessage{
 			http.StatusNotFound,
 			"Err: Verification Failed for current account",
 		})
 	}
+
 }
 
 func (v *VerificationServer) register(c echo.Context) error {
@@ -96,6 +100,7 @@ func (v *VerificationServer) register(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError,
 			CodeMessage{http.StatusInternalServerError, err.Error()})
 	}
+
 	success, err := v.sm.Verify(body, []byte(signature))
 
 	if err != nil {
