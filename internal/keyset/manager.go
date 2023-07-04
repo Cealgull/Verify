@@ -1,15 +1,16 @@
-package sign
+package keyset
 
 import (
 	"math/rand"
 	"sync"
 
+	"github.com/Cealgull/Verify/pkg/keypair"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
 	"go.dedis.ch/kyber/v3/sign/anon"
 )
 
-type SignManager struct {
+type KeyManager struct {
 	suite  anon.Suite
 	pubs   anon.Set
 	priv   []kyber.Scalar
@@ -19,17 +20,11 @@ type SignManager struct {
 	cap    int
 }
 
-type SignToken struct {
-	Pubs anon.Set     `json:"pubs"`
-	Priv kyber.Scalar `json:"priv"`
-	Idx  int          `json:"idx"`
-}
-
-func NewSignManager(nr_mem int, cap int) (*SignManager, error) {
+func NewKeyManager(nr_mem int, cap int) (*KeyManager, error) {
 
 	suite := edwards25519.NewBlakeSHA256Ed25519()
 
-	m := &SignManager{
+	m := &KeyManager{
 		suite:  suite,
 		pubs:   nil,
 		priv:   nil,
@@ -39,12 +34,12 @@ func NewSignManager(nr_mem int, cap int) (*SignManager, error) {
 		cap:    cap,
 	}
 
-	m.renew()
+	m.renewKeySet()
 
 	return m, nil
 }
 
-func (m *SignManager) renew() {
+func (m *KeyManager) renewKeySet() {
 
 	pubs := make(anon.Set, m.nr_mem)
 	priv := make([]kyber.Scalar, m.nr_mem)
@@ -60,13 +55,13 @@ func (m *SignManager) renew() {
 
 }
 
-func (m *SignManager) Verify(msg []byte, sig []byte) (bool, error) {
+func (m *KeyManager) Verify(msg []byte, sig []byte) (bool, error) {
 
 	m.mtx.Lock()
 	tag, err := anon.Verify(m.suite, msg, m.pubs, nil, sig)
 	m.cnt += 1
 	if m.cnt == m.cap {
-		m.renew()
+		m.renewKeySet()
 	}
 	m.mtx.Unlock()
 
@@ -81,7 +76,7 @@ func (m *SignManager) Verify(msg []byte, sig []byte) (bool, error) {
 	return true, nil
 }
 
-func (m *SignManager) Dispatch() SignToken {
+func (m *KeyManager) Dispatch() *keypair.KeyPair {
 
 	m.mtx.Lock()
 
@@ -89,7 +84,7 @@ func (m *SignManager) Dispatch() SignToken {
 	idx := rand.Int() % m.nr_mem
 	copy(pubs, m.pubs)
 
-	t := SignToken{
+	t := keypair.KeyPair{
 		Pubs: pubs,
 		Priv: m.priv[idx],
 		Idx:  idx,
@@ -97,5 +92,5 @@ func (m *SignManager) Dispatch() SignToken {
 
 	m.mtx.Unlock()
 
-	return t
+	return &t
 }

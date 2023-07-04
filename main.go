@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/Cealgull/Verify/internal/email"
 	"github.com/Cealgull/Verify/internal/fabric"
-	"github.com/Cealgull/Verify/internal/sign"
+	"github.com/Cealgull/Verify/internal/keyset"
 	"github.com/Cealgull/Verify/internal/verify"
 	"github.com/Cealgull/Verify/pkg/turnstile"
 	"github.com/spf13/viper"
@@ -16,7 +16,7 @@ func main() {
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath("/etc/cealgull-verify.")
+	viper.AddConfigPath("/etc/cealgull-verify")
 	viper.AddConfigPath("./configs/")
 	viper.AddConfigPath(".")
 
@@ -74,9 +74,9 @@ func main() {
 		logger.Panic(err.Error())
 	}
 
-	signMap := viper.GetStringMap("sign")
-	sm, err := sign.NewSignManager(signMap["nr_mem"].(int),
-		signMap["cap"].(int))
+	keyMap := viper.GetStringMap("keyset")
+	km, err := keyset.NewKeyManager(keyMap["nr_mem"].(int),
+		keyMap["cap"].(int))
 
 	if err != nil {
 		logger.Panic(err.Error())
@@ -86,7 +86,7 @@ func main() {
 	ts := turnstile.NewTurnstile(turnstileMap["secret"])
 
 	serverMap := viper.GetStringMap("server")
-	server := verify.New(serverMap["host"].(string), serverMap["port"].(string), em, fm, sm, ts)
+	server := verify.New(serverMap["host"].(string), serverMap["port"].(string), em, fm, km, ts)
 
 	server.Start()
 }

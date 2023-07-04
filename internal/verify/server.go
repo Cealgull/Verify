@@ -8,7 +8,7 @@ import (
 
 	"github.com/Cealgull/Verify/internal/email"
 	"github.com/Cealgull/Verify/internal/fabric"
-	"github.com/Cealgull/Verify/internal/sign"
+	"github.com/Cealgull/Verify/internal/keyset"
 	"github.com/Cealgull/Verify/pkg/turnstile"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -20,7 +20,7 @@ type VerificationServer struct {
 	ec   *echo.Echo
 	em   *email.EmailManager
 	fm   *fabric.FabricManager
-	sm   *sign.SignManager
+	sm   *keyset.KeyManager
 	ts   *turnstile.Turnstile
 }
 
@@ -39,10 +39,10 @@ type RegisterRequest struct {
 	Secret string `json:"secret"`
 }
 
-func New(host string, port string, em *email.EmailManager, fm *fabric.FabricManager, sm *sign.SignManager, ts *turnstile.Turnstile) *VerificationServer {
+func New(host string, port string, em *email.EmailManager, fm *fabric.FabricManager, km *keyset.KeyManager, ts *turnstile.Turnstile) *VerificationServer {
 
 	ec := echo.New()
-	v := VerificationServer{host, port, ec, em, fm, sm, ts}
+	v := VerificationServer{host, port, ec, em, fm, km, ts}
 	v.ec.Use(middleware.Logger())
 	v.ec.Use(middleware.Recover())
 	v.ec.POST("/auth/verify", v.verify)
@@ -64,7 +64,8 @@ func (v *VerificationServer) verify(c echo.Context) error {
 			CodeMessage{http.StatusInternalServerError, err.Error()})
 	}
 	if success {
-		return c.JSON(http.StatusOK, v.sm.Dispatch())
+		token := v.sm.Dispatch()
+		return c.JSON(http.StatusOK, &token)
 	} else {
 		return c.JSON(http.StatusNotFound, CodeMessage{
 			http.StatusNotFound,
