@@ -155,7 +155,6 @@ func (m *EmailManager) Sign(account string) (int, error) {
 		return -1, fmt.Errorf("Err: Account format not valid.")
 	}
 
-	fmt.Println("Checking duplicates")
 	ctx := context.Background()
 	err := m.redis.Get(ctx, account).Err()
 
@@ -165,13 +164,10 @@ func (m *EmailManager) Sign(account string) (int, error) {
 
 	err = m.dialer.send(account, content)
 
-	fmt.Println("Sending email")
-
 	if err != nil {
 		return -1, err
 	}
 
-	fmt.Println("Setting Code")
 	err = m.redis.Set(ctx, account, fmt.Sprintf("%06d", code), time.Duration(5)*time.Minute).Err()
 
 	if err != nil {
@@ -192,8 +188,7 @@ func (m *EmailManager) Verify(account string, guess string) (bool, error) {
 	}
 
 	ctx := context.Background()
-	cmd := m.redis.GetDel(ctx, account)
-	err := cmd.Err()
+	truth, err := m.redis.GetDel(ctx, account).Result()
 
 	if err == redis.Nil {
 		return false, fmt.Errorf("Err: Account is not valid anymore. Please re-sign the verification code")
@@ -201,7 +196,6 @@ func (m *EmailManager) Verify(account string, guess string) (bool, error) {
 		return false, err
 	}
 
-	truth := cmd.String()
 	if guess == truth {
 		return true, nil
 	} else {
