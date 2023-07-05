@@ -5,7 +5,7 @@ email:
         fromdom: org1.example.com
         todom: org2.example.com
         secret: secret
-        template: To:%s\r\nSubject:[Cealgull] Verification Code\r\n\r\n%s\r\n
+        template: "To: %s\r\n Subject: [Cealgull] Verification Code\r\n\r\n%s\r\n"
     redis:
         server: localhost:6379
         user: ''
