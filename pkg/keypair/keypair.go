@@ -23,24 +23,41 @@ func PointsToStrings(points anon.Set) []string {
 	return out
 }
 
-func StringToScalar(msg string) kyber.Scalar {
+func StringToScalar(msg string) (kyber.Scalar, error) {
 	suite := edwards25519.NewBlakeSHA256Ed25519()
 	scalar := suite.Scalar()
-	data, _ := base64.StdEncoding.DecodeString(msg)
-	_ = scalar.UnmarshalBinary(data)
-	return scalar
+	data, err := base64.StdEncoding.DecodeString(msg)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err = scalar.UnmarshalBinary(data); err != nil {
+		return nil, err
+	}
+
+	return scalar, nil
 }
 
-func StringsToPoints(msgs []string) anon.Set {
+func StringsToPoints(msgs []string) (anon.Set, error) {
 	set := make(anon.Set, len(msgs))
 	suite := edwards25519.NewBlakeSHA256Ed25519()
+
 	for i, msg := range msgs {
 		p := suite.Point()
-		data, _ := base64.StdEncoding.DecodeString(msg)
-		_ = p.UnmarshalBinary(data)
+		data, err := base64.StdEncoding.DecodeString(msg)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if err = p.UnmarshalBinary(data); err != nil {
+			return nil, err
+		}
+
 		set[i] = p
 	}
-	return set
+	return set, nil
 }
 
 type KeyPair struct {
@@ -74,9 +91,21 @@ func (t *KeyPair) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	priv, err := StringToScalar(s.Priv)
+
+	if err != nil {
+		return err
+	}
+
+	pubs, err := StringsToPoints(s.Pubs)
+
+	if err != nil {
+		return nil
+	}
+
 	*t = KeyPair{
-		Pubs: StringsToPoints(s.Pubs),
-		Priv: StringToScalar(s.Priv),
+		Pubs: pubs,
+		Priv: priv,
 		Idx:  s.Idx,
 	}
 
