@@ -1,8 +1,8 @@
 package verify
 
 import (
-	"encoding/hex"
-	"io"
+	"encoding/base64"
+	"encoding/json"
 	"net/http"
 
 	"github.com/Cealgull/Verify/internal/email"
@@ -84,22 +84,34 @@ func (v *VerificationServer) register(c echo.Context) error {
 			CodeMessage{http.StatusBadRequest, err.Error()})
 	}
 
-	signature, err := hex.DecodeString(c.Request().Header.Get("Signature"))
+	sigb64 := c.Request().Header.Get("sig")
 
-	if err != nil || signature == nil {
+	if sigb64 == "" {
 		return c.JSON(http.StatusBadRequest,
-			CodeMessage{http.StatusBadRequest,
-				"Err: Signature not found in headers"})
+			CodeMessage{http.StatusBadRequest, "Err: Signature not found in headers"})
 	}
 
-	body, err := io.ReadAll(c.Request().Body)
+	sig, err := base64.StdEncoding.DecodeString(c.Request().Header.Get("sig"))
+
+	if err != nil || sig == nil {
+		return c.JSON(http.StatusBadRequest,
+			CodeMessage{http.StatusBadRequest,
+				"Err: Signature invalid in type"})
+	}
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError,
 			CodeMessage{http.StatusInternalServerError, err.Error()})
 	}
 
-	success, err := v.sm.Verify(body, []byte(signature))
+	msg, err := json.Marshal(&req)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError,
+			CodeMessage{http.StatusInternalServerError, err.Error()})
+	}
+
+	success, err := v.sm.Verify(msg, sig)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError,

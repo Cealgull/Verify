@@ -58,7 +58,7 @@ func (m *KeyManager) renewKeySet() {
 func (m *KeyManager) Verify(msg []byte, sig []byte) (bool, error) {
 
 	m.mtx.Lock()
-	tag, err := anon.Verify(m.suite, msg, m.pubs, nil, sig)
+	_, err := anon.Verify(m.suite, msg, m.pubs, nil, sig)
 	m.cnt += 1
 	if m.cnt == m.cap {
 		m.renewKeySet()
@@ -67,10 +67,6 @@ func (m *KeyManager) Verify(msg []byte, sig []byte) (bool, error) {
 
 	if err != nil {
 		return false, err
-	}
-
-	if tag != nil {
-		return false, nil
 	}
 
 	return true, nil
