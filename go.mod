@@ -1,6 +1,6 @@
 module github.com/Cealgull/Verify
 
-go 1.20
+go 1.18
 
 require (
 	github.com/emersion/go-sasl v0.0.0-20200509203442-7bfe0ed36a21
