@@ -3,6 +3,7 @@ package keypair
 import (
 	"encoding/base64"
 	"encoding/json"
+	"strings"
 
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
@@ -14,19 +15,19 @@ func ScalarToString(scalar kyber.Scalar) string {
 	return base64.StdEncoding.EncodeToString(data)
 }
 
-func PointsToStrings(points anon.Set) []string {
+func PointsToStrings(points anon.Set) string {
 	out := make([]string, len(points))
 	for i, point := range points {
 		data, _ := point.MarshalBinary()
 		out[i] = base64.StdEncoding.EncodeToString(data)
 	}
-	return out
+	return strings.Join(out, ",")
 }
 
-func StringToScalar(msg string) (kyber.Scalar, error) {
+func StringToScalar(m string) (kyber.Scalar, error) {
 	suite := edwards25519.NewBlakeSHA256Ed25519()
 	scalar := suite.Scalar()
-	data, err := base64.StdEncoding.DecodeString(msg)
+	data, err := base64.StdEncoding.DecodeString(m)
 
 	if err != nil {
 		return nil, err
@@ -39,11 +40,15 @@ func StringToScalar(msg string) (kyber.Scalar, error) {
 	return scalar, nil
 }
 
-func StringsToPoints(msgs []string) (anon.Set, error) {
+func StringsToPoints(ms string) (anon.Set, error) {
+
+	msgs := strings.Split(ms, ",")
+
 	set := make(anon.Set, len(msgs))
 	suite := edwards25519.NewBlakeSHA256Ed25519()
 
 	for i, msg := range msgs {
+
 		p := suite.Point()
 		data, err := base64.StdEncoding.DecodeString(msg)
 
@@ -68,9 +73,9 @@ type KeyPair struct {
 
 func (t *KeyPair) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
-		Pubs []string `json:"pubs"`
-		Priv string   `json:"priv"`
-		Idx  int      `json:"idx"`
+		Pubs string `json:"pubs"`
+		Priv string `json:"priv"`
+		Idx  int    `json:"idx"`
 	}{
 		Pubs: PointsToStrings(t.Pubs),
 		Priv: ScalarToString(t.Priv),
@@ -81,9 +86,9 @@ func (t *KeyPair) MarshalJSON() ([]byte, error) {
 func (t *KeyPair) UnmarshalJSON(data []byte) error {
 
 	var s struct {
-		Pubs []string `json:"pubs"`
-		Priv string   `json:"priv"`
-		Idx  int      `json:"idx"`
+		Pubs string `json:"pubs"`
+		Priv string `json:"priv"`
+		Idx  int    `json:"idx"`
 	}
 
 	err := json.Unmarshal(data, &s)
