@@ -75,3 +75,18 @@ func (r *RedisCache) GetDel(key string) (string, error) {
 
 	return res, nil
 }
+
+func (r *RedisCache) Del(key string) error {
+	cmd := r.client.Del(context.Background(), key)
+	res, err := cmd.Result()
+
+	if err != nil && err != redis.Nil {
+		return &InternalError{}
+	}
+
+	if res == 0 {
+		return &KeyError{}
+	}
+
+	return nil
+}

@@ -71,3 +71,14 @@ func TestExists(t *testing.T) {
 	_, err = incorrectCache.Exists("123")
 	assert.IsType(t, &InternalError{}, err)
 }
+
+func TestDel(t *testing.T) {
+	mock.ExpectDel("123").SetVal(1)
+	err := normalCache.Del("123")
+	assert.Nil(t, err)
+	mock.ExpectDel("123").SetVal(0)
+	err = normalCache.Del("123")
+	assert.IsType(t, &KeyError{}, err)
+	err = incorrectCache.Del("123")
+	assert.IsType(t, &InternalError{}, err)
+}
