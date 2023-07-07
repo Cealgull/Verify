@@ -33,7 +33,9 @@ func StringToScalar(m string) (kyber.Scalar, error) {
 		return nil, err
 	}
 
-	if err = scalar.UnmarshalBinary(data); err != nil {
+	err = scalar.UnmarshalBinary(data)
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -56,7 +58,9 @@ func StringsToPoints(ms string) (anon.Set, error) {
 			return nil, err
 		}
 
-		if err = p.UnmarshalBinary(data); err != nil {
+		err = p.UnmarshalBinary(data)
+
+		if err != nil {
 			return nil, err
 		}
 
@@ -92,9 +96,7 @@ func (t *KeyPair) UnmarshalJSON(data []byte) error {
 	}
 
 	err := json.Unmarshal(data, &s)
-	if err != nil {
-		return err
-	}
+	var _ = err
 
 	priv, err := StringToScalar(s.Priv)
 
@@ -105,7 +107,7 @@ func (t *KeyPair) UnmarshalJSON(data []byte) error {
 	pubs, err := StringsToPoints(s.Pubs)
 
 	if err != nil {
-		return nil
+		return err
 	}
 
 	*t = KeyPair{
