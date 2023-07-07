@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Cealgull/Verify/internal/cache"
+	"github.com/Cealgull/Verify/internal/proto"
 	mail "github.com/xhit/go-simple-mail/v2"
 )
 
@@ -132,7 +133,7 @@ func NewEmailManager(options ...ManagerOption) (*EmailManager, error) {
 	return &mgr, nil
 }
 
-func (m *EmailManager) Sign(account string) (int, error) {
+func (m *EmailManager) Sign(account string) (int, proto.VerifyError) {
 	code := rand.Intn(1000000)
 	content := fmt.Sprintf(m.template, code)
 	if !m.accexp.Match([]byte(account)) {
@@ -160,7 +161,7 @@ func (m *EmailManager) Sign(account string) (int, error) {
 	return code, nil
 }
 
-func (m *EmailManager) Verify(account string, guess string) (bool, error) {
+func (m *EmailManager) Verify(account string, guess string) (bool, proto.VerifyError) {
 
 	if !m.accexp.Match([]byte(account)) {
 		return false, &AccountError{}

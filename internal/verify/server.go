@@ -60,8 +60,8 @@ func (v *VerificationServer) verify(c echo.Context) error {
 	success, err := v.em.Verify(req.Account, req.Code)
 
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError,
-			CodeMessage{http.StatusInternalServerError, err.Error()})
+		return c.JSON(err.Code(),
+			CodeMessage{err.Code(), err.Error()})
 	}
 
 	if success {
@@ -70,7 +70,7 @@ func (v *VerificationServer) verify(c echo.Context) error {
 	} else {
 		return c.JSON(http.StatusNotFound, CodeMessage{
 			http.StatusNotFound,
-			"Err: Verification Failed for current account",
+			"Email: Verification Failed for current account",
 		})
 	}
 
@@ -141,8 +141,8 @@ func (v *VerificationServer) sign(c echo.Context) error {
 	_, err := v.em.Sign(req.Account)
 
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError,
-			CodeMessage{http.StatusInternalServerError, err.Error()})
+		return c.JSON(err.Code(),
+			CodeMessage{err.Code(), err.Error()})
 	}
 
 	return c.JSON(http.StatusOK,
