@@ -1,12 +1,12 @@
 ---
-name: test-network-org1
+name: ccp-template-org1
 version: 1.0.0
 client:
     organization: Org1
     credentialStore:
-        path: '/tmp/msp/org1'
+        path: './testdata/msp'
         cryptoStore:
-            path: '/tmp/keystore/org1'
+            path: './testdata/msp'
     connection:
         timeout:
             peer:
@@ -34,6 +34,7 @@ certificateAuthorities:
         url: https://localhost:7054
         caName: ca-org1
         tlsCACerts:
+            pem:
             path: fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/msp/cacerts/localhost-7054-ca-org1.pem
         httpOptions:
             verify: false
