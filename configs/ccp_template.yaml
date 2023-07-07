@@ -3,6 +3,10 @@ name: test-network-org1
 version: 1.0.0
 client:
     organization: Org1
+    credentialStore:
+        path: '/tmp/msp/org1'
+        cryptoStore:
+            path: '/tmp/keystore/org1'
     connection:
         timeout:
             peer:
