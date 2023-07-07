@@ -3,40 +3,52 @@ package fabric
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"testing"
 
-	"github.com/spf13/viper"
+	"github.com/hyperledger/fabric-sdk-go/pkg/fab/mocks"
+	"github.com/hyperledger/fabric-sdk-go/pkg/msp/test/mockmsp"
+	"github.com/stretchr/testify/assert"
 )
 
 var mgr *FabricManager
+var server *mockmsp.MockFabricCAServer
+var suite *mocks.MockCryptoSuite
+
+func TestStartCAServer(t *testing.T) {
+	suite = &mocks.MockCryptoSuite{}
+	server = &mockmsp.MockFabricCAServer{}
+	lis, err := net.Listen("tcp", "localhost:2333")
+
+	assert.Nil(t, err)
+	server.Start(lis, suite)
+}
 
 func TestFabricManager(t *testing.T) {
 
-	viper.AddConfigPath("../../configs")
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
+	var err error
 
-	err := viper.ReadInConfig()
-
-	if err != nil {
-		panic(err)
-	}
-
-	fabricMap := viper.GetStringMapString("fabric")
-
-	if err != nil {
-		panic(err)
-	}
-
-	mgr, err = NewFabricManager(
-		WithConfiguration("../../configs/ccp.yaml"),
-		WithOrg("Org1"),
-		WithCAHost(fabricMap["cahost"]),
+	_, err = NewFabricManager(
+		WithConfiguration("./testdata/ccp_notfound.yaml"),
 	)
 
-	if err != nil {
-		panic(err)
-	}
+	assert.NotNil(t, err)
+
+	_, err = NewFabricManager(
+		WithConfiguration("./testdata/ccp_mock.yaml"),
+		WithOrg("Org2"),
+		WithCAHost("ca.org1.example.com"),
+	)
+
+	assert.NotNil(t, err)
+
+	mgr, err = NewFabricManager(
+		WithConfiguration("./testdata/ccp_mock.yaml"),
+		WithOrg("Org1"),
+		WithCAHost("ca.org1.example.com"),
+	)
+
+	assert.Nil(t, err)
 
 }
 

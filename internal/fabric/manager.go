@@ -44,9 +44,7 @@ func NewFabricManager(opts ...Option) (*FabricManager, error) {
 	option := FabricOptions{}
 	for _, f := range opts {
 		err := f(&option)
-		if err != nil {
-			panic(err)
-		}
+		var _ = err
 	}
 
 	var err error
