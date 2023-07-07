@@ -31,12 +31,13 @@ func main() {
 	dialerMap := emailMap["dialer"].(map[string]interface{})
 
 	dialer, err := email.NewEmailDialer(
-		email.WithFrom(dialerMap["account"].(string),
-			dialerMap["fromdom"].(string),
+		email.WithClient(dialerMap["host"].(string),
+			dialerMap["port"].(int),
+			dialerMap["from"].(string),
 			dialerMap["secret"].(string)),
-		email.WithDialerTemplate(dialerMap["template"].(string)),
 		email.WithToDom(dialerMap["todom"].(string)),
-		email.WithClient(dialerMap["server"].(string)))
+		email.WithSubject(dialerMap["subject"].(string)),
+	)
 
 	if err != nil {
 		logger.Panic(err.Error())

@@ -3,14 +3,14 @@ module github.com/Cealgull/Verify
 go 1.18
 
 require (
-	github.com/emersion/go-sasl v0.0.0-20200509203442-7bfe0ed36a21
-	github.com/emersion/go-smtp v0.16.0
 	github.com/go-redis/redismock/v9 v9.0.3
 	github.com/hyperledger/fabric-sdk-go v1.0.0
 	github.com/labstack/echo/v4 v4.10.2
+	github.com/mocktools/go-smtp-mock/v2 v2.1.0
 	github.com/redis/go-redis/v9 v9.0.5
 	github.com/spf13/viper v1.1.1
 	github.com/stretchr/testify v1.8.1
+	github.com/xhit/go-simple-mail/v2 v2.15.0
 	go.dedis.ch/kyber/v3 v3.1.0
 	go.uber.org/zap v1.24.0
 )
@@ -25,6 +25,7 @@ require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-kit/kit v0.8.0 // indirect
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
+	github.com/go-test/deep v1.1.0 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/mock v1.4.3 // indirect
 	github.com/golang/protobuf v1.3.3 // indirect
@@ -51,7 +52,7 @@ require (
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
+	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/weppos/publicsuffix-go v0.5.0 // indirect

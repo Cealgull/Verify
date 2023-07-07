@@ -4,49 +4,41 @@ import (
 	"fmt"
 	"math/rand"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/Cealgull/Verify/internal/cache"
-
-	"github.com/emersion/go-sasl"
-	"github.com/emersion/go-smtp"
+	mail "github.com/xhit/go-simple-mail/v2"
 )
 
 type EmailDialer struct {
-	from     string
-	secret   string
-	todom    string
-	template string
-	client   *smtp.Client
+	from    string
+	todom   string
+	subject string
+	client  *mail.SMTPClient
 }
 
 type DialerOption func(dialer *EmailDialer) error
 
-func WithDialerTemplate(template string) DialerOption {
+func WithSubject(subject string) DialerOption {
 	return func(dialer *EmailDialer) error {
-		dialer.template = template
+		dialer.subject = subject
 		return nil
 	}
 }
 
-func WithClient(addr string) DialerOption {
+func WithClient(host string, port int, from string, secret string) DialerOption {
 	return func(dialer *EmailDialer) error {
-		c, err := smtp.Dial(addr)
-		if err != nil {
-			return err
-		}
-		dialer.client = c
-		return nil
-	}
-}
+		server := mail.NewSMTPClient()
+		server.Port = port
+		server.Host = host
+		server.Username = from
+		server.Password = secret
+		server.KeepAlive = true
 
-func WithFrom(account string, fromdom string, secret string) DialerOption {
-	return func(dialer *EmailDialer) error {
-		from := fmt.Sprintf("%s@%s", account, fromdom)
+		var err error
+		dialer.client, err = server.Connect()
 		dialer.from = from
-		dialer.secret = secret
-		return nil
+		return err
 	}
 }
 
@@ -74,13 +66,14 @@ func (d *EmailDialer) close() {
 
 func (d *EmailDialer) send(account string, content string) error {
 	to := fmt.Sprintf("%s@%s", account, d.todom)
-	msg := fmt.Sprintf(d.template, to, content)
-	auth := sasl.NewPlainClient("", d.from, d.secret)
-	err := d.client.Auth(auth)
-	if err != nil {
-		return err
-	}
-	err = d.client.SendMail(d.from, []string{to}, strings.NewReader(msg))
+	msg := mail.NewMSG()
+	msg.SetFrom(d.from).
+		AddTo(to).
+		SetSubject(d.subject).
+		SetBody(mail.TextPlain, content)
+
+	err := msg.Send(d.client)
+
 	return err
 }
 
@@ -134,10 +127,7 @@ func WithEmailDialer(dialer *EmailDialer) ManagerOption {
 func NewEmailManager(options ...ManagerOption) (*EmailManager, error) {
 	var mgr EmailManager
 	for _, option := range options {
-		err := option(&mgr)
-		if err != nil {
-			return nil, err
-		}
+		var _ = option(&mgr)
 	}
 	return &mgr, nil
 }
@@ -146,25 +136,25 @@ func (m *EmailManager) Sign(account string) (int, error) {
 	code := rand.Intn(1000000)
 	content := fmt.Sprintf(m.template, code)
 	if !m.accexp.Match([]byte(account)) {
-		return -1, fmt.Errorf("Err: Account format not valid.")
+		return -1, &AccountError{}
 	}
 
 	count, err := m.cache.Exists(account)
 
-	if count != 0 {
-		return -1, fmt.Errorf("Err: Verication Code has already been sent. Preventing Duplicates...")
+	if err != nil {
+		return -1, &InternalError{}
 	}
 
-	if err != nil {
-		return -1, fmt.Errorf("Err: Database Error")
+	if count != 0 {
+		return -1, &DuplicateError{}
 	}
 
 	if err := m.dialer.send(account, content); err != nil {
-		return -1, err
+		return -1, &InternalError{}
 	}
 
 	if err := m.cache.Set(account, fmt.Sprintf("%06d", code), time.Duration(5)*time.Minute); err != nil {
-		return -1, nil
+		return -1, &InternalError{}
 	}
 
 	return code, nil
@@ -172,25 +162,33 @@ func (m *EmailManager) Sign(account string) (int, error) {
 
 func (m *EmailManager) Verify(account string, guess string) (bool, error) {
 
-	if !m.codeexp.Match([]byte(guess)) {
-		return false, fmt.Errorf("Err: Guessing code format not valid.")
-	}
-
 	if !m.accexp.Match([]byte(account)) {
-		return false, fmt.Errorf("Err: Account format not valid.")
+		return false, &AccountError{}
 	}
 
-	truth, err := m.cache.GetDel(account)
-
-	if err != nil {
-		return false, fmt.Errorf("Err: Account is not valid anymore. Please re-sign the verification code")
+	if !m.codeexp.Match([]byte(guess)) {
+		return false, &CodeError{}
 	}
 
-	if guess == truth {
-		return true, nil
-	} else {
+	truth, err := m.cache.Get(account)
+
+	if _, ok := err.(*cache.InternalError); ok {
+		return false, &InternalError{}
+	} else if _, ok := err.(*cache.KeyError); ok {
+		return false, &NotFoundError{}
+	}
+
+	if guess != truth {
 		return false, nil
 	}
+
+	err = m.cache.Del(account)
+
+	if _, ok := err.(*cache.InternalError); ok {
+		return false, &InternalError{}
+	}
+
+	return true, nil
 
 }
 
