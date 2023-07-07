@@ -1,11 +1,10 @@
 email:
     dialer:
-        server: example.com:587
-        account: alice
-        fromdom: org1.example.com
+        host: smtp.example.com
+        port: 587
+        from: alice@org1.example.com
         todom: org2.example.com
         secret: secret
-        template: "To: %s\r\n Subject: [Cealgull] Verification Code\r\n\r\n%s\r\n"
     redis:
         server: localhost:6379
         user: ''
