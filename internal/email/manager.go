@@ -1,16 +1,16 @@
 package email
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/Cealgull/Verify/internal/cache"
+
 	"github.com/emersion/go-sasl"
 	"github.com/emersion/go-smtp"
-	"github.com/redis/go-redis/v9"
 )
 
 type EmailDialer struct {
@@ -86,7 +86,7 @@ func (d *EmailDialer) send(account string, content string) error {
 
 type EmailManager struct {
 	dialer   *EmailDialer
-	redis    *redis.Client
+	cache    cache.Cache
 	codeexp  *regexp.Regexp
 	accexp   *regexp.Regexp
 	template string
@@ -117,15 +117,9 @@ func WithAccExp(rule string) ManagerOption {
 	}
 }
 
-func WithRedis(addr string, user string, secret string, index int) ManagerOption {
+func WithCache(cache cache.Cache) ManagerOption {
 	return func(mgr *EmailManager) error {
-		mgr.redis = redis.NewClient(
-			&redis.Options{
-				Addr:     addr,
-				Password: secret,
-				DB:       index,
-			},
-		)
+		mgr.cache = cache
 		return nil
 	}
 }
@@ -155,23 +149,22 @@ func (m *EmailManager) Sign(account string) (int, error) {
 		return -1, fmt.Errorf("Err: Account format not valid.")
 	}
 
-	ctx := context.Background()
-	err := m.redis.Get(ctx, account).Err()
+	count, err := m.cache.Exists(account)
 
-	if err != redis.Nil {
+	if count != 0 {
 		return -1, fmt.Errorf("Err: Verication Code has already been sent. Preventing Duplicates...")
 	}
 
-	err = m.dialer.send(account, content)
-
 	if err != nil {
+		return -1, fmt.Errorf("Err: Database Error")
+	}
+
+	if err := m.dialer.send(account, content); err != nil {
 		return -1, err
 	}
 
-	err = m.redis.Set(ctx, account, fmt.Sprintf("%06d", code), time.Duration(5)*time.Minute).Err()
-
-	if err != nil {
-		return -1, err
+	if err := m.cache.Set(account, fmt.Sprintf("%06d", code), time.Duration(5)*time.Minute); err != nil {
+		return -1, nil
 	}
 
 	return code, nil
@@ -187,13 +180,10 @@ func (m *EmailManager) Verify(account string, guess string) (bool, error) {
 		return false, fmt.Errorf("Err: Account format not valid.")
 	}
 
-	ctx := context.Background()
-	truth, err := m.redis.GetDel(ctx, account).Result()
+	truth, err := m.cache.GetDel(account)
 
-	if err == redis.Nil {
+	if err != nil {
 		return false, fmt.Errorf("Err: Account is not valid anymore. Please re-sign the verification code")
-	} else if err != nil {
-		return false, err
 	}
 
 	if guess == truth {
@@ -201,6 +191,7 @@ func (m *EmailManager) Verify(account string, guess string) (bool, error) {
 	} else {
 		return false, nil
 	}
+
 }
 
 func (m *EmailManager) Close() {

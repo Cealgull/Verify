@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/Cealgull/Verify/internal/cache"
 	"github.com/Cealgull/Verify/internal/email"
 	"github.com/Cealgull/Verify/internal/fabric"
 	"github.com/Cealgull/Verify/internal/keyset"
@@ -47,13 +48,15 @@ func main() {
 		logger.Panic(err.Error())
 	}
 
+	c := cache.NewRedis(redisMap["server"].(string),
+		redisMap["user"].(string),
+		redisMap["secret"].(string),
+		redisMap["db"].(int))
+
 	em, err := email.NewEmailManager(
 		email.WithCodeExp(emailMap["coderule"].(string)),
-		email.WithRedis(redisMap["server"].(string),
-			redisMap["user"].(string),
-			redisMap["secret"].(string),
-			redisMap["db"].(int)),
 		email.WithEmailDialer(dialer),
+		email.WithCache(c),
 		email.WithAccExp(emailMap["accrule"].(string)),
 		email.WithEmailTemplate(emailMap["template"].(string)),
 	)
