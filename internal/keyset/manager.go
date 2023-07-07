@@ -58,11 +58,14 @@ func (m *KeyManager) renewKeySet() {
 func (m *KeyManager) Verify(msg []byte, sig []byte) (bool, error) {
 
 	m.mtx.Lock()
+
 	_, err := anon.Verify(m.suite, msg, m.pubs, nil, sig)
 	m.cnt += 1
+
 	if m.cnt == m.cap {
 		m.renewKeySet()
 	}
+
 	m.mtx.Unlock()
 
 	if err != nil {
