@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/Cealgull/Verify/internal/cache"
 	"github.com/Cealgull/Verify/internal/email"
 	"github.com/Cealgull/Verify/internal/fabric"
@@ -90,7 +92,9 @@ func main() {
 	ts := turnstile.NewTurnstile(turnstileMap["secret"])
 
 	verifyMap := viper.GetStringMap("verify")
-	server := verify.NewVerificationServer(verifyMap["addr"].(string), em, fm, km, ts)
+	server := verify.NewVerificationServer(
+		fmt.Sprintf("%s:%d", verifyMap["host"].(string), verifyMap["port"].(int)),
+		em, fm, km, ts)
 
 	server.Start()
 }

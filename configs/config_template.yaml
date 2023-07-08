@@ -23,4 +23,5 @@ keyset:
 turnstile:
     secret: dummy
 verify:
-    server: localhost:8080
+    host: localhost
+    port: 8080
