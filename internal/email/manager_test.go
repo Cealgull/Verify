@@ -134,3 +134,7 @@ func TestEmailVerify(t *testing.T) {
 
 	mgr.Close()
 }
+
+func TestCloseServer(t *testing.T) {
+	assert.NoError(t, server.Stop())
+}

@@ -18,6 +18,7 @@ var suite *mocks.MockCryptoSuite
 func TestStartCAServer(t *testing.T) {
 	suite = &mocks.MockCryptoSuite{}
 	server = &mockmsp.MockFabricCAServer{}
+	var err error
 	lis, err := net.Listen("tcp", "localhost:2333")
 
 	assert.Nil(t, err)
@@ -59,4 +60,5 @@ func TestFabricManagerRegister(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+
 }

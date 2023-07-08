@@ -57,7 +57,7 @@ func TestNewVerificationServer(t *testing.T) {
 
 	assert.Nil(t, err)
 
-    lis, err := net.Listen("tcp", "127.0.0.1:2333")
+	lis, err := net.Listen("tcp", "127.0.0.1:2333")
 	caServer = &mockmsp.MockFabricCAServer{}
 	suite := &mocks.MockCryptoSuite{}
 	caServer.Start(lis, suite)
@@ -246,10 +246,10 @@ func TestRegisterHandler(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
-func TestServerStart(t *testing.T){
-    verify.Start()
+func TestServerStart(t *testing.T) {
+	verify.Start()
 }
 
 func TestCloseServer(t *testing.T) {
-    smtpServer.Stop()
+	assert.NoError(t, smtpServer.Stop())
 }
