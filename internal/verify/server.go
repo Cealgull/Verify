@@ -53,8 +53,8 @@ func (v *VerificationServer) verify(c echo.Context) error {
 	var req EmailRequest
 
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusInternalServerError,
-			CodeMessage{http.StatusInternalServerError, err.Error()})
+		return c.JSON(http.StatusBadRequest,
+			CodeMessage{http.StatusBadRequest, err.Error()})
 	}
 
 	success, err := v.em.Verify(req.Account, req.Code)
@@ -91,7 +91,7 @@ func (v *VerificationServer) register(c echo.Context) error {
 			CodeMessage{http.StatusBadRequest, "Err: Signature not found in headers"})
 	}
 
-	sig, err := base64.StdEncoding.DecodeString(c.Request().Header.Get("sig"))
+	sig, err := base64.StdEncoding.DecodeString(sigb64)
 
 	if err != nil || sig == nil {
 		return c.JSON(http.StatusBadRequest,
@@ -99,31 +99,16 @@ func (v *VerificationServer) register(c echo.Context) error {
 				"Err: Signature invalid in type"})
 	}
 
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError,
-			CodeMessage{http.StatusInternalServerError, err.Error()})
-	}
+	msg, _ := json.Marshal(&req)
 
-	msg, err := json.Marshal(&req)
-
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError,
-			CodeMessage{http.StatusInternalServerError, err.Error()})
-	}
-
-	success, err := v.sm.Verify(msg, sig)
-
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError,
-			CodeMessage{http.StatusInternalServerError, err.Error()})
-	}
+	success, _ := v.sm.Verify(msg, sig)
 
 	if success {
 		return c.JSON(http.StatusOK,
 			CodeMessage{http.StatusOK, "OK"})
 	} else {
-		return c.JSON(http.StatusInternalServerError,
-			CodeMessage{http.StatusInternalServerError,
+		return c.JSON(http.StatusBadRequest,
+			CodeMessage{http.StatusBadRequest,
 				"Err: Signature not matching the content"})
 	}
 
@@ -131,11 +116,11 @@ func (v *VerificationServer) register(c echo.Context) error {
 
 func (v *VerificationServer) sign(c echo.Context) error {
 
-	req := new(EmailRequest)
+	var req EmailRequest
 
-	if err := c.Bind(req); err != nil {
-		return c.JSON(http.StatusInternalServerError,
-			CodeMessage{http.StatusInternalServerError, err.Error()})
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest,
+			CodeMessage{http.StatusBadRequest, "BadRequest: Incorrect Request Params"})
 	}
 
 	_, err := v.em.Sign(req.Account)
@@ -151,5 +136,5 @@ func (v *VerificationServer) sign(c echo.Context) error {
 }
 
 func (s *VerificationServer) Start() {
-	s.ec.Logger.Fatal(s.ec.Start(s.addr))
+	s.ec.Logger.Error(s.ec.Start(s.addr))
 }
