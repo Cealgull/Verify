@@ -48,7 +48,7 @@ func (t *Turnstile) Verify(token string, ip string) (bool, error) {
 		return false, err
 	}
 
-	response := turnstileResponse{}
+	var response turnstileResponse
 	err = json.Unmarshal(body, &response)
 
 	if err != nil {
