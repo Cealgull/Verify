@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/go-redis/redismock/v9 v9.0.3
 	github.com/hyperledger/fabric-sdk-go v1.0.0
+	github.com/itchyny/base58-go v0.2.1
 	github.com/labstack/echo/v4 v4.10.2
 	github.com/mocktools/go-smtp-mock/v2 v2.1.0
 	github.com/redis/go-redis/v9 v9.0.5

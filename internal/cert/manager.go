@@ -3,9 +3,10 @@ package cert
 import (
 	"crypto/ed25519"
 	"crypto/rand"
-	"crypto/sha512"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/pem"
 	"io"
 	"math/big"
@@ -13,11 +14,14 @@ import (
 	"time"
 
 	"github.com/Cealgull/Verify/internal/proto"
+	base58 "github.com/itchyny/base58-go"
 )
 
 type CertManager struct {
-	priv ed25519.PrivateKey
-	cert *x509.Certificate
+	priv       ed25519.PrivateKey
+	cert       *x509.Certificate
+	magic      string
+	expiration time.Duration
 }
 
 const (
@@ -102,8 +106,27 @@ func WithCertificate(file string) Option {
 	}
 }
 
+func WithMagic(magic string) Option {
+	return func(mgr *CertManager) error {
+		mgr.magic = magic
+		return nil
+	}
+}
+
+func WithExpiration(t int64) Option {
+	return func(mgr *CertManager) error {
+		mgr.expiration = time.Duration(t)
+		return nil
+	}
+}
+
 func NewCertManager(options ...Option) (*CertManager, error) {
-	mgr := new(CertManager)
+
+	mgr := &CertManager{
+		expiration: time.Duration(10),
+		magic:      "Cealgull",
+	}
+
 	for _, option := range options {
 		err := option(mgr)
 		if err != nil {
@@ -113,42 +136,46 @@ func NewCertManager(options ...Option) (*CertManager, error) {
 	return mgr, nil
 }
 
-func (m *CertManager) SignCSR(data []byte) ([]byte, proto.VerifyError) {
+func pubToAddress(pub []byte, magic string) string {
 
-	b, err := loadPem(data, CSR)
+	pubhash := sha256.New().Sum(pub)
+	magicbytes := []byte(magic)
+	magicbytes = append(magicbytes, pubhash...)
+	checksum := sha256.New().Sum(magicbytes)[:4]
+	pubhash = append(pubhash, checksum...)
 
-	if err != nil {
-		return nil, &InternalError{}
+	addr, _ := base58.BitcoinEncoding.Encode(pubhash)
+
+	return string(addr)
+
+}
+
+func (m *CertManager) SignCSR(s string) ([]byte, proto.VerifyError) {
+
+	b, err := base64.StdEncoding.DecodeString(s)
+
+	if len(b) != 32 || err != nil {
+		return nil, &BadRequestError{}
 	}
 
-	csr, err := x509.ParseCertificateRequest(b)
-
-	if err != nil {
-		return nil, &InternalError{}
-	}
+	var pub ed25519.PublicKey = b
 
 	sn := new(big.Int)
 	sn = sn.Lsh(big.NewInt(1), 512)
 	sn, _ = rand.Int(rand.Reader, sn)
 
-	pk, _ := m.cert.PublicKey.([64]byte)
+	address := pubToAddress(b, m.magic)
 
 	cert := &x509.Certificate{
 		SerialNumber: sn,
 		Subject: pkix.Name{
-			CommonName:   csr.Subject.CommonName,
-			Organization: []string{"Cealgull"},
-			SerialNumber: csr.Subject.SerialNumber,
+			CommonName: address,
 		},
-		SubjectKeyId:       sha512.New().Sum(pk[:]),
-		Issuer:             m.cert.Subject,
-		NotBefore:          time.Now(),
-		PublicKey:          csr.PublicKey,
-		PublicKeyAlgorithm: csr.PublicKeyAlgorithm,
-		SignatureAlgorithm: csr.SignatureAlgorithm,
+		Issuer:    m.cert.Subject,
+		NotBefore: time.Now(),
 	}
 
-	b, err = x509.CreateCertificate(rand.Reader, cert, m.cert, cert.PublicKey, m.priv)
+	b, err = x509.CreateCertificate(rand.Reader, cert, m.cert, pub, m.priv)
 
 	if err != nil {
 		return nil, &InternalError{}
@@ -172,18 +199,6 @@ func (m *CertManager) VerifyCert(data []byte) (bool, proto.VerifyError) {
 	}
 
 	if err := cert.CheckSignatureFrom(m.cert); err != nil {
-		return false, &UnauthorizedError{}
-	}
-
-	pool := x509.NewCertPool()
-	pool.AddCert(m.cert)
-
-	chain, err := cert.Verify(x509.VerifyOptions{
-		Roots:       pool,
-		CurrentTime: time.Now(),
-	})
-
-	if err != nil || chain == nil {
 		return false, &UnauthorizedError{}
 	}
 
