@@ -132,7 +132,6 @@ func TestEmailVerify(t *testing.T) {
 
 	assert.IsType(t, &InternalError{}, err)
 
-	mgr.Close()
 }
 
 func TestCloseServer(t *testing.T) {
