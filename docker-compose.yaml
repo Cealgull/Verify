@@ -1,14 +1,18 @@
-version: '3.0'
+version: '3.9'
 
 services:
     verify:
         build: .
         ports:
-            - 443:443
+            - '8080:8080'
         volumes:
-            - ./configs/ccp.yaml:/etc/cealgull-verify/ccp.yaml
             - ./configs/config.yaml:/etc/cealgull-verify/config.yaml
-    redis:
-        image: redis
-        ports:
-            - 5479:5479
+        networks:
+            - verify-network
+    keydb:
+        image: eqalpha/keydb
+        networks:
+            - verify-network
+        hostname: keydb.cealgull.verify
+networks:
+    verify-network:
