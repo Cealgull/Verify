@@ -6,22 +6,21 @@ email:
         todom: org2.example.com
         secret: secret
     redis:
-        server: localhost:6379
+        server: keydb.cealgull.verify:6379
         user: ''
         secret: ''
         db: 0
     template: The Verification Code is %06d.
     coderule: '[0-9]{6}'
     accrule: '^[a-zA-Z0-9-_\.]{3,50}$'
-fabric:
-    org: Org1
-    cahost: ca.org1.example.com
-    cacerts: './configs/ccp.yaml'
+cert:
+    priv: './crypto/priv.pem'
+    cert: './crypto/cert.pem'
 keyset:
     nr_mem: 64
     cap: 64
 turnstile:
     secret: dummy
 verify:
-    host: localhost
+    host: 0.0.0.0
     port: 8080
