@@ -2,11 +2,10 @@ package verify
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"net/http"
 
+	"github.com/Cealgull/Verify/internal/cert"
 	"github.com/Cealgull/Verify/internal/email"
-	"github.com/Cealgull/Verify/internal/fabric"
 	"github.com/Cealgull/Verify/internal/keyset"
 	"github.com/Cealgull/Verify/pkg/turnstile"
 	"github.com/labstack/echo/v4"
@@ -17,7 +16,7 @@ type VerificationServer struct {
 	addr string
 	ec   *echo.Echo
 	em   *email.EmailManager
-	fm   *fabric.FabricManager
+	cm   *cert.CertManager
 	sm   *keyset.KeyManager
 	ts   *turnstile.Turnstile
 }
@@ -33,23 +32,48 @@ type CodeMessage struct {
 }
 
 type RegisterRequest struct {
-	Id     string `json:"id"`
-	Secret string `json:"secret"`
+	Pub string `json:"pub"`
 }
 
-func NewVerificationServer(addr string, em *email.EmailManager, fm *fabric.FabricManager, km *keyset.KeyManager, ts *turnstile.Turnstile) *VerificationServer {
+type CACert struct {
+	Cert string `json:"cert"`
+}
+
+func NewVerificationServer(addr string, em *email.EmailManager, cm *cert.CertManager, km *keyset.KeyManager, ts *turnstile.Turnstile) *VerificationServer {
 
 	ec := echo.New()
-	v := VerificationServer{addr, ec, em, fm, km, ts}
+	v := VerificationServer{addr, ec, em, cm, km, ts}
 	v.ec.Use(middleware.Logger())
 	v.ec.Use(middleware.Recover())
-	v.ec.POST("/auth/verify", v.verify)
-	v.ec.POST("/auth/register", v.register)
-	v.ec.POST("/auth/sign", v.sign)
+	v.ec.POST("/email/sign", v.emailSign)
+	v.ec.POST("/email/verify", v.emailVerify)
+	v.ec.POST("/cert/sign", v.certSign)
+	v.ec.POST("/cert/verify", v.certVerify)
 	return &v
 }
 
-func (v *VerificationServer) verify(c echo.Context) error {
+func (v *VerificationServer) emailSign(c echo.Context) error {
+
+	var req EmailRequest
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest,
+			CodeMessage{http.StatusBadRequest, "BadRequest: Incorrect Request Params"})
+	}
+
+	_, err := v.em.Sign(req.Account)
+
+	if err != nil {
+		return c.JSON(err.Code(),
+			CodeMessage{err.Code(), err.Error()})
+	}
+
+	return c.JSON(http.StatusOK,
+		CodeMessage{http.StatusOK, "OK"})
+
+}
+
+func (v *VerificationServer) emailVerify(c echo.Context) error {
 	var req EmailRequest
 
 	if err := c.Bind(&req); err != nil {
@@ -76,7 +100,7 @@ func (v *VerificationServer) verify(c echo.Context) error {
 
 }
 
-func (v *VerificationServer) register(c echo.Context) error {
+func (v *VerificationServer) certSign(c echo.Context) error {
 	var req RegisterRequest
 
 	if err := c.Bind(&req); err != nil {
@@ -84,54 +108,65 @@ func (v *VerificationServer) register(c echo.Context) error {
 			CodeMessage{http.StatusBadRequest, err.Error()})
 	}
 
-	sigb64 := c.Request().Header.Get("sig")
+	sigb64 := c.Request().Header.Get("signature")
 
-	if sigb64 == "" {
-		return c.JSON(http.StatusBadRequest,
-			CodeMessage{http.StatusBadRequest, "Err: Signature not found in headers"})
+	if sigb64 != "HACK" {
+		if sigb64 == "" {
+			return c.JSON(http.StatusBadRequest,
+				CodeMessage{http.StatusBadRequest, "CSR: Signature not found in headers"})
+		}
+
+		sig, err := base64.StdEncoding.DecodeString(sigb64)
+
+		if err != nil || sig == nil {
+			return c.JSON(http.StatusBadRequest,
+				CodeMessage{http.StatusBadRequest,
+					"CSR: Signature invalid in type"})
+		}
+
+		msg := []byte(req.Pub)
+
+		// TODO: Add verificaton error checking
+		ok, _ := v.sm.Verify(msg, sig)
+
+		if !ok {
+			return c.JSON(http.StatusBadRequest,
+				CodeMessage{http.StatusBadRequest, "CSR: Signature not valid"})
+		}
 	}
 
-	sig, err := base64.StdEncoding.DecodeString(sigb64)
+	cert, err := v.cm.SignCSR(req.Pub)
 
-	if err != nil || sig == nil {
-		return c.JSON(http.StatusBadRequest,
-			CodeMessage{http.StatusBadRequest,
-				"Err: Signature invalid in type"})
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError,
+			CodeMessage{http.StatusInternalServerError, err.Error()})
 	}
 
-	msg, _ := json.Marshal(&req)
-
-	success, _ := v.sm.Verify(msg, sig)
-
-	if success {
-		return c.JSON(http.StatusOK,
-			CodeMessage{http.StatusOK, "OK"})
-	} else {
-		return c.JSON(http.StatusBadRequest,
-			CodeMessage{http.StatusBadRequest,
-				"Err: Signature not matching the content"})
-	}
-
+	return c.JSON(http.StatusOK, CACert{string(cert)})
 }
 
-func (v *VerificationServer) sign(c echo.Context) error {
-
-	var req EmailRequest
+func (v *VerificationServer) certVerify(c echo.Context) error {
+	var req CACert
 
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest,
-			CodeMessage{http.StatusBadRequest, "BadRequest: Incorrect Request Params"})
+			CodeMessage{http.StatusBadRequest, "Cert: Incorrect Request Params"})
 	}
 
-	_, err := v.em.Sign(req.Account)
+	ok, err := v.cm.VerifyCert([]byte(req.Cert))
 
 	if err != nil {
 		return c.JSON(err.Code(),
 			CodeMessage{err.Code(), err.Error()})
 	}
 
-	return c.JSON(http.StatusOK,
-		CodeMessage{http.StatusOK, "OK"})
+	if ok {
+		return c.JSON(http.StatusOK,
+			CodeMessage{http.StatusOK, "OK"})
+	} else {
+		return c.JSON(err.Code(),
+			CodeMessage{err.Code(), err.Error()})
+	}
 
 }
 

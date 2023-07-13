@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/Cealgull/Verify/internal/cache"
+	"github.com/Cealgull/Verify/internal/cert"
 	"github.com/Cealgull/Verify/internal/email"
-	"github.com/Cealgull/Verify/internal/fabric"
 	"github.com/Cealgull/Verify/internal/keyset"
 	"github.com/Cealgull/Verify/internal/verify"
 	"github.com/Cealgull/Verify/pkg/turnstile"
@@ -63,17 +63,15 @@ func main() {
 		email.WithAccExp(emailMap["accrule"].(string)),
 		email.WithEmailTemplate(emailMap["template"].(string)),
 	)
-
 	if err != nil {
 		logger.Panic(err.Error())
 	}
 
-	fabricMap := viper.GetStringMapString("fabric")
+	certMap := viper.GetStringMap("cert")
 
-	fm, err := fabric.NewFabricManager(
-		fabric.WithOrg(fabricMap["org"]),
-		fabric.WithCAHost(fabricMap["cahost"]),
-		fabric.WithConfiguration(fabricMap["cacerts"]),
+	cm, err := cert.NewCertManager(
+		cert.WithPrivateKey(certMap["priv"].(string)),
+		cert.WithCertificate(certMap["cert"].(string)),
 	)
 
 	if err != nil {
@@ -93,8 +91,10 @@ func main() {
 
 	verifyMap := viper.GetStringMap("verify")
 	server := verify.NewVerificationServer(
-		fmt.Sprintf("%s:%d", verifyMap["host"].(string), verifyMap["port"].(int)),
-		em, fm, km, ts)
+		fmt.Sprintf("%s:%d",
+			verifyMap["host"].(string),
+			verifyMap["port"].(int)),
+		em, cm, km, ts)
 
 	server.Start()
 }
