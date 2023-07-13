@@ -1,14 +1,12 @@
-FROM golang:1.20
+FROM golang:alpine
 LABEL MAINTAINER toolmanp
 
 WORKDIR /app/
 COPY . /app/
 
-RUN go mod tidy
-RUN go mod download
+RUN GOPROXY=goproxy.cn go mod tidy
 
-RUN mkdir build
-RUN go build --ldflags "-s -w" -o "build/server"
-RUN go clean -modcache
+RUN GOPROXY=goproxy.cn go build --ldflags "-s -w" -o "build/server"
+RUN go clean -modcache -cache
 
-CMD ["./CealgullVerify"]
+CMD ["build/server"]
