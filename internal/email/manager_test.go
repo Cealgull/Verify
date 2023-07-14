@@ -7,6 +7,7 @@ import (
 
 	"github.com/Cealgull/Verify/internal/cache"
 	mockcache "github.com/Cealgull/Verify/internal/cache/mock"
+	"github.com/Cealgull/Verify/internal/proto"
 	mocksmtp "github.com/mocktools/go-smtp-mock/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -61,29 +62,29 @@ func TestNewEmailManager(t *testing.T) {
 }
 
 func TestEmailSign(t *testing.T) {
-	var err error
+	var err proto.VerifyError
 	code, err = mgr.Sign("user1")
 	assert.Nil(t, err)
 
 	code, err = mgr.Sign("user1")
-	assert.IsType(t, &DuplicateError{}, err)
-	fmt.Println(err.(*DuplicateError).Code(), err.(*DuplicateError).Error())
+	assert.IsType(t, &DuplicateEmailError{}, err)
+	fmt.Println(err.Status(), err.Message())
 
 	c.AddGetErr("user1", &cache.InternalError{})
 	_, err = mgr.Sign("user1")
-	assert.IsType(t, &InternalError{}, err)
-	fmt.Println(err.(*InternalError).Code(), err.(*InternalError).Error())
+	assert.IsType(t, &EmailInternalError{}, err)
+	fmt.Println(err.Status(), err.Message())
 
 	_, err = mgr.Sign("@ssjft=")
-	assert.IsType(t, &AccountError{}, err)
-	fmt.Println(err.(*AccountError).Code(), err.(*AccountError).Error())
+	assert.IsType(t, &AccountFormatError{}, err)
+	fmt.Println(err.Status(), err.Message())
 
 	c.AddSetErr("user2", &cache.InternalError{})
 	_, err = mgr.Sign("user2")
-	assert.IsType(t, &InternalError{}, err)
+	assert.IsType(t, &EmailInternalError{}, err)
 
 	_, err = mgr.Sign("user3")
-	assert.IsType(t, &InternalError{}, err)
+	assert.IsType(t, &EmailDialingError{}, err)
 
 	code, err = mgr.Sign("user4")
 	assert.Nil(t, err)
@@ -94,18 +95,18 @@ func TestEmailVerify(t *testing.T) {
 	var f bool
 
 	_, err := mgr.Verify("@!sag", "asfhasufd")
-	assert.IsType(t, &AccountError{}, err)
+	assert.IsType(t, &AccountFormatError{}, err)
 
 	_, err = mgr.Verify("user1", "ashfusiadg")
-	assert.IsType(t, &CodeError{}, err)
-	fmt.Println(err.(*CodeError).Code(), err.(*CodeError).Error())
+	assert.IsType(t, &CodeFormatError{}, err)
+	fmt.Println(err.Status(), err.Message())
 
 	_, err = mgr.Verify("user1", "123456")
-	assert.IsType(t, &InternalError{}, err)
+	assert.IsType(t, &EmailInternalError{}, err)
 
 	_, err = mgr.Verify("user5", "234567")
-	assert.IsType(t, &NotFoundError{}, err)
-	fmt.Println(err.(*NotFoundError).Code(), err.(*NotFoundError).Error())
+	assert.IsType(t, &AccountNotFoundError{}, err)
+	fmt.Println(err.Status(), err.Message())
 
 	var guess int
 
@@ -123,14 +124,14 @@ func TestEmailVerify(t *testing.T) {
 	assert.True(t, f)
 
 	_, err = mgr.Verify("user4", fmt.Sprintf("%06d", code))
-	assert.IsType(t, &NotFoundError{}, err)
+	assert.IsType(t, &AccountNotFoundError{}, err)
 
 	c.AddDelErr("user6", &cache.InternalError{})
 
 	code, _ = mgr.Sign("user6")
 	_, err = mgr.Verify("user6", fmt.Sprintf("%06d", code))
 
-	assert.IsType(t, &InternalError{}, err)
+	assert.IsType(t, &EmailInternalError{}, err)
 
 }
 

@@ -1,7 +1,6 @@
 package verify
 
 import (
-	"encoding/base64"
 	"net/http"
 
 	"github.com/Cealgull/Verify/internal/cert"
@@ -26,11 +25,6 @@ type EmailRequest struct {
 	Code    string `json:"code"`
 }
 
-type CodeMessage struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
 type RegisterRequest struct {
 	Pub string `json:"pub"`
 }
@@ -38,6 +32,10 @@ type RegisterRequest struct {
 type CACert struct {
 	Cert string `json:"cert"`
 }
+
+var berr *GenericBindingError = &GenericBindingError{}
+var bsig *SignatureMissingError = &SignatureMissingError{}
+var success *VerifySuccess = &VerifySuccess{}
 
 func NewVerificationServer(addr string, em *email.EmailManager, cm *cert.CertManager, km *keyset.KeyManager, ts *turnstile.Turnstile) *VerificationServer {
 
@@ -56,90 +54,62 @@ func (v *VerificationServer) emailSign(c echo.Context) error {
 
 	var req EmailRequest
 
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest,
-			CodeMessage{http.StatusBadRequest, "BadRequest: Incorrect Request Params"})
+	if c.Bind(&req) != nil {
+		return c.JSON(berr.Status(), berr.Message())
 	}
 
 	_, err := v.em.Sign(req.Account)
 
 	if err != nil {
-		return c.JSON(err.Code(),
-			CodeMessage{err.Code(), err.Error()})
+		return c.JSON(err.Status(), err.Message())
 	}
 
-	return c.JSON(http.StatusOK,
-		CodeMessage{http.StatusOK, "OK"})
-
+	return c.JSON(success.Status(), success.Message())
 }
 
 func (v *VerificationServer) emailVerify(c echo.Context) error {
 	var req EmailRequest
 
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest,
-			CodeMessage{http.StatusBadRequest, err.Error()})
+	if c.Bind(&req) != nil {
+		return c.JSON(berr.Status(), berr.Message())
 	}
 
 	success, err := v.em.Verify(req.Account, req.Code)
 
-	if err != nil {
-		return c.JSON(err.Code(),
-			CodeMessage{err.Code(), err.Error()})
+	if !success && err != nil {
+		return c.JSON(err.Status(), berr.Message())
 	}
 
-	if success {
-		token := v.sm.Dispatch()
-		return c.JSON(http.StatusOK, token)
-	} else {
-		return c.JSON(http.StatusNotFound, CodeMessage{
-			http.StatusNotFound,
-			"Email: Verification Failed for current account",
-		})
-	}
+	return c.JSON(http.StatusOK, v.sm.Dispatch())
 
 }
 
 func (v *VerificationServer) certSign(c echo.Context) error {
 	var req RegisterRequest
 
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest,
-			CodeMessage{http.StatusBadRequest, err.Error()})
+	if c.Bind(&req) != nil {
+		return c.JSON(berr.Status(), berr.Message())
 	}
 
 	sigb64 := c.Request().Header.Get("signature")
 
 	if sigb64 != "HACK" {
 		if sigb64 == "" {
-			return c.JSON(http.StatusBadRequest,
-				CodeMessage{http.StatusBadRequest, "CSR: Signature not found in headers"})
+			return c.JSON(bsig.Status(), bsig.Message())
 		}
-
-		sig, err := base64.StdEncoding.DecodeString(sigb64)
-
-		if err != nil || sig == nil {
-			return c.JSON(http.StatusBadRequest,
-				CodeMessage{http.StatusBadRequest,
-					"CSR: Signature invalid in type"})
-		}
-
-		msg := []byte(req.Pub)
 
 		// TODO: Add verificaton error checking
-		ok, _ := v.sm.Verify(msg, sig)
+		ok, err := v.sm.Verify(req.Pub, sigb64)
 
-		if !ok {
-			return c.JSON(http.StatusBadRequest,
-				CodeMessage{http.StatusBadRequest, "CSR: Signature not valid"})
+		if !ok && err != nil {
+			return c.JSON(err.Status(), err.Message())
 		}
 	}
 
 	cert, err := v.cm.SignCSR(req.Pub)
 
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError,
-			CodeMessage{http.StatusInternalServerError, err.Error()})
+		return c.JSON(err.Status(), err.Message())
 	}
 
 	return c.JSON(http.StatusOK, CACert{string(cert)})
@@ -148,25 +118,17 @@ func (v *VerificationServer) certSign(c echo.Context) error {
 func (v *VerificationServer) certVerify(c echo.Context) error {
 	var req CACert
 
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest,
-			CodeMessage{http.StatusBadRequest, "Cert: Incorrect Request Params"})
+	if c.Bind(&req) != nil {
+		return c.JSON(berr.Status(), berr.Message())
 	}
 
 	ok, err := v.cm.VerifyCert([]byte(req.Cert))
 
-	if err != nil {
-		return c.JSON(err.Code(),
-			CodeMessage{err.Code(), err.Error()})
+	if !ok && err != nil {
+		return c.JSON(err.Status(), err.Message())
 	}
 
-	if ok {
-		return c.JSON(http.StatusOK,
-			CodeMessage{http.StatusOK, "OK"})
-	} else {
-		return c.JSON(err.Code(),
-			CodeMessage{err.Code(), err.Error()})
-	}
+	return c.JSON(success.Status(), success.Message())
 
 }
 

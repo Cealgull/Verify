@@ -1,9 +1,11 @@
 package keyset
 
 import (
+	"encoding/base64"
 	"math/rand"
 	"sync"
 
+	"github.com/Cealgull/Verify/internal/proto"
 	"github.com/Cealgull/Verify/pkg/keypair"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
@@ -55,11 +57,17 @@ func (m *KeyManager) renewKeySet() {
 
 }
 
-func (m *KeyManager) Verify(msg []byte, sig []byte) (bool, error) {
+func (m *KeyManager) Verify(msg string, sigb64 string) (bool, proto.VerifyError) {
+
+	sig, err := base64.StdEncoding.DecodeString(sigb64)
+
+	if err != nil {
+		return false, &SignatureDecodeError{}
+	}
 
 	m.mtx.Lock()
 
-	_, err := anon.Verify(m.suite, msg, m.pubs, nil, sig)
+	_, err = anon.Verify(m.suite, []byte(msg), m.pubs, nil, sig)
 	m.cnt += 1
 
 	if m.cnt == m.cap {
@@ -69,7 +77,7 @@ func (m *KeyManager) Verify(msg []byte, sig []byte) (bool, error) {
 	m.mtx.Unlock()
 
 	if err != nil {
-		return false, err
+		return false, &SignatureVerificationError{}
 	}
 
 	return true, nil

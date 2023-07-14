@@ -137,25 +137,25 @@ func (m *EmailManager) Sign(account string) (int, proto.VerifyError) {
 	code := rand.Intn(1000000)
 	content := fmt.Sprintf(m.template, code)
 	if !m.accexp.Match([]byte(account)) {
-		return -1, &AccountError{}
+		return -1, &AccountFormatError{}
 	}
 
 	count, err := m.cache.Exists(account)
 
 	if err != nil {
-		return -1, &InternalError{}
+		return -1, &EmailInternalError{}
 	}
 
 	if count != 0 {
-		return -1, &DuplicateError{}
+		return -1, &DuplicateEmailError{}
 	}
 
 	if err := m.dialer.send(account, content); err != nil {
-		return -1, &InternalError{}
+		return -1, &EmailDialingError{}
 	}
 
 	if err := m.cache.Set(account, fmt.Sprintf("%06d", code), time.Duration(5)*time.Minute); err != nil {
-		return -1, &InternalError{}
+		return -1, &EmailInternalError{}
 	}
 
 	return code, nil
@@ -164,29 +164,29 @@ func (m *EmailManager) Sign(account string) (int, proto.VerifyError) {
 func (m *EmailManager) Verify(account string, guess string) (bool, proto.VerifyError) {
 
 	if !m.accexp.Match([]byte(account)) {
-		return false, &AccountError{}
+		return false, &AccountFormatError{}
 	}
 
 	if !m.codeexp.Match([]byte(guess)) {
-		return false, &CodeError{}
+		return false, &CodeFormatError{}
 	}
 
 	truth, err := m.cache.Get(account)
 
 	if _, ok := err.(*cache.InternalError); ok {
-		return false, &InternalError{}
+		return false, &EmailInternalError{}
 	} else if _, ok := err.(*cache.KeyError); ok {
-		return false, &NotFoundError{}
+		return false, &AccountNotFoundError{}
 	}
 
 	if guess != truth {
-		return false, nil
+		return false, &CodeIncorrectError{}
 	}
 
 	err = m.cache.Del(account)
 
 	if _, ok := err.(*cache.InternalError); ok {
-		return false, &InternalError{}
+		return false, &EmailInternalError{}
 	}
 
 	return true, nil

@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
-	"fmt"
 	"io"
 	"math/big"
 	"os"
@@ -37,8 +36,12 @@ func loadPem(data []byte, ftype string) ([]byte, error) {
 
 	p, _ := pem.Decode(data)
 
-	if p == nil || p.Type != ftype {
-		return nil, &InternalError{}
+	if p == nil {
+		return nil, &FileDecodeError{}
+	}
+
+	if p.Type != ftype {
+		return nil, &FileFormatError{}
 	}
 
 	return p.Bytes, nil
@@ -49,7 +52,7 @@ func loadPemFromDisk(file string, ftype string) ([]byte, error) {
 	f, err := os.Open(file)
 
 	if err != nil {
-		return nil, &InternalError{}
+		return nil, &FileInternalError{}
 	}
 
 	b, _ := io.ReadAll(f)
@@ -153,8 +156,12 @@ func (m *CertManager) SignCSR(s string) ([]byte, proto.VerifyError) {
 
 	b, err := base64.StdEncoding.DecodeString(s)
 
-	if len(b) != 32 || err != nil {
-		return nil, &BadRequestError{}
+	if err != nil {
+		return nil, &PubDecodeError{}
+	}
+
+	if len(b) != 32 {
+		return nil, &PubFormatError{}
 	}
 
 	var pub ed25519.PublicKey = b
@@ -178,10 +185,8 @@ func (m *CertManager) SignCSR(s string) ([]byte, proto.VerifyError) {
 
 	b, err = x509.CreateCertificate(rand.Reader, cert, m.cert, pub, m.priv)
 
-	fmt.Println(address)
-
 	if err != nil {
-		return nil, &InternalError{}
+		return nil, &CertInternalError{}
 	}
 
 	return generatePem(CERT, b), nil
@@ -191,18 +196,20 @@ func (m *CertManager) VerifyCert(data []byte) (bool, proto.VerifyError) {
 
 	b, err := loadPem(data, CERT)
 
-	if err != nil {
-		return false, &InternalError{}
+	if _, ok := err.(*FileFormatError); ok {
+		return false, &CertFormatError{}
+	} else if _, ok := err.(*FileDecodeError); ok {
+		return false, &CertDecodeError{}
 	}
 
 	cert, err := x509.ParseCertificate(b)
 
 	if err != nil {
-		return false, &BadRequestError{}
+		return false, &CertFormatError{}
 	}
 
 	if err := cert.CheckSignatureFrom(m.cert); err != nil {
-		return false, &UnauthorizedError{}
+		return false, &CertUnauthorizedError{}
 	}
 
 	return true, nil

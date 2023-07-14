@@ -1,49 +1,92 @@
 package email
 
-import "net/http"
+import (
+	"net/http"
 
-type DuplicateError struct{}
-type AccountError struct{}
-type CodeError struct{}
-type InternalError struct{}
-type NotFoundError struct{}
+	"github.com/Cealgull/Verify/internal/proto"
+)
 
-func (e *DuplicateError) Code() int {
+type DuplicateEmailError struct{}
+type AccountFormatError struct{}
+type CodeFormatError struct{}
+type CodeIncorrectError struct{}
+type EmailInternalError struct{}
+type AccountNotFoundError struct{}
+type EmailDialingError struct{}
+
+func (e *DuplicateEmailError) Status() int {
 	return http.StatusBadRequest
 }
 
-func (e *DuplicateError) Error() string {
-	return "Email: Duplicated Email. Please resend after 3 minutes."
+func (e *DuplicateEmailError) Message() *proto.ResponseMessage {
+	return &proto.ResponseMessage{
+		Code:    "A0110",
+		Message: "Email: Email Duplicated, Please verify or wait for another three minutes.",
+	}
 }
 
-func (e *AccountError) Code() int {
+func (e *AccountFormatError) Status() int {
 	return http.StatusBadRequest
 }
 
-func (e *AccountError) Error() string {
-	return "Email: Invalid Account Format."
+func (e *AccountFormatError) Message() *proto.ResponseMessage {
+	return &proto.ResponseMessage{
+		Code:    "A0421",
+		Message: "Email: Account Format Incorrect.",
+	}
 }
 
-func (e *CodeError) Code() int {
-	return http.StatusBadRequest
-}
-
-func (e *CodeError) Error() string {
-	return "Email: Invalid Validation Code Format."
-}
-
-func (e *InternalError) Code() int {
-	return http.StatusInternalServerError
-}
-
-func (e *InternalError) Error() string {
-	return "Email: Internal Server Error."
-}
-
-func (e *NotFoundError) Code() int {
+func (e *AccountNotFoundError) Status() int {
 	return http.StatusNotFound
 }
 
-func (e *NotFoundError) Error() string {
-	return "Email: Account is not found or the code is already invalid."
+func (e *AccountNotFoundError) Message() *proto.ResponseMessage {
+	return &proto.ResponseMessage{
+		Code:    "A0201",
+		Message: "Email: User hasn't requested a verfication code or the code has expired.",
+	}
+}
+
+func (e *CodeFormatError) Status() int {
+	return http.StatusBadRequest
+}
+
+func (e *CodeFormatError) Message() *proto.ResponseMessage {
+	return &proto.ResponseMessage{
+		Code:    "A0422",
+		Message: "Email: Verification Code Format Incorrect.",
+	}
+}
+
+func (e *CodeIncorrectError) Status() int {
+	return http.StatusBadRequest
+}
+
+func (e *CodeIncorrectError) Message() *proto.ResponseMessage {
+	return &proto.ResponseMessage{
+		Code:    "A0422",
+		Message: "Email: Verfication Code Incorrect.",
+	}
+}
+
+func (e *EmailInternalError) Status() int {
+	return http.StatusInternalServerError
+}
+
+func (e *EmailInternalError) Message() *proto.ResponseMessage {
+	return &proto.ResponseMessage{
+		Code:    "E1001",
+		Message: "Email: Internal Server Error.",
+	}
+}
+
+func (e *EmailDialingError) Status() int {
+	return http.StatusInternalServerError
+}
+
+func (e *EmailDialingError) Message() *proto.ResponseMessage {
+	return &proto.ResponseMessage{
+		Code:    "E1002",
+		Message: "Email: Dialing Service Report that email is not valid.",
+	}
 }

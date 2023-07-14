@@ -1,6 +1,7 @@
 package keyset
 
 import (
+	"encoding/base64"
 	"testing"
 
 	"github.com/Cealgull/Verify/pkg/keypair"
@@ -29,17 +30,19 @@ func TestVerify(t *testing.T) {
 	msg1 := "hello world"
 	msg2 := "goodbye world"
 
-	sig1 := anon.Sign(edwards25519.NewBlakeSHA256Ed25519(), []byte(msg1), kp.Pubs, nil, kp.Idx, kp.Priv)
-	test, _ := mgr.Verify([]byte(msg1), sig1)
+	sig := anon.Sign(edwards25519.NewBlakeSHA256Ed25519(), []byte(msg1), kp.Pubs, nil, kp.Idx, kp.Priv)
+	sigb64 := base64.StdEncoding.EncodeToString(sig)
+
+	test, _ := mgr.Verify(msg1, sigb64)
 
 	assert.True(t, test)
 	assert.Equal(t, 1, mgr.cnt)
 
-	test, _ = mgr.Verify([]byte(msg2), sig1)
+	test, _ = mgr.Verify(msg2, sigb64)
 	assert.False(t, test)
 
 	mgr.cnt = 15
-	test, _ = mgr.Verify([]byte(msg1), sig1)
+	test, _ = mgr.Verify(msg1, sigb64)
 	assert.True(t, test)
 	assert.Equal(t, 0, mgr.cnt)
 

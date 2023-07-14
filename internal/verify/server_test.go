@@ -163,7 +163,7 @@ func TestVerifyHandler(t *testing.T) {
 	c = verify.ec.NewContext(req, rec)
 	assert.NoError(t, verify.emailVerify(c))
 
-	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
 	signRequest = EmailRequest{
 		Account: "user1",
