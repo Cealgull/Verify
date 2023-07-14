@@ -1,6 +1,7 @@
 package mock
 
 import (
+	"errors"
 	"time"
 
 	"github.com/Cealgull/Verify/internal/cache"
@@ -78,4 +79,12 @@ func (r *MockCache) Del(key string) error {
 	}
 	delete(r.m, key)
 	return nil
+}
+
+func (r *MockCache) SAdd(set string, key string) error {
+	return errors.New("NOT IMPLEMENTED")
+}
+
+func (r *MockCache) SIsmember(set string, key string) (bool, error) {
+	return false, errors.New("NOT IMPLEMENTED")
 }

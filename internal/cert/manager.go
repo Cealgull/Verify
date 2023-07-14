@@ -14,12 +14,14 @@ import (
 	"os"
 	"time"
 
+	"github.com/Cealgull/Verify/internal/cache"
 	"github.com/Cealgull/Verify/internal/proto"
 )
 
 type CertManager struct {
 	priv       ed25519.PrivateKey
 	cert       *x509.Certificate
+	cache      cache.Cache
 	version    byte
 	expiration time.Duration
 }
@@ -121,6 +123,13 @@ func WithExpiration(t int64) Option {
 	}
 }
 
+func WithCache(c cache.Cache) Option {
+	return func(mgr *CertManager) error {
+		mgr.cache = c
+		return nil
+	}
+}
+
 func NewCertManager(options ...Option) (*CertManager, error) {
 
 	mgr := &CertManager{
@@ -152,27 +161,27 @@ func (m *CertManager) pubToAddress(pub []byte) string {
 
 }
 
-func (m *CertManager) SignCSR(s string) ([]byte, proto.VerifyError) {
+func (m *CertManager) createCertificate(s string) ([]byte, proto.VerifyError) {
 
-	b, err := base64.StdEncoding.DecodeString(s)
+	var pub ed25519.PublicKey
+
+	pub, err := base64.StdEncoding.DecodeString(s)
 
 	if err != nil {
 		return nil, &PubDecodeError{}
 	}
 
-	if len(b) != 32 {
+	if len(pub) != 32 {
 		return nil, &PubFormatError{}
 	}
-
-	var pub ed25519.PublicKey = b
 
 	sn := new(big.Int)
 	sn = sn.Lsh(big.NewInt(1), 512)
 	sn, _ = rand.Int(rand.Reader, sn)
 
-	address := m.pubToAddress(b)
+	address := m.pubToAddress(pub)
 
-	cert := &x509.Certificate{
+	template := &x509.Certificate{
 		SerialNumber: sn,
 		Subject: pkix.Name{
 			CommonName:         "0x" + address,
@@ -183,13 +192,35 @@ func (m *CertManager) SignCSR(s string) ([]byte, proto.VerifyError) {
 		NotBefore: time.Now(),
 	}
 
-	b, err = x509.CreateCertificate(rand.Reader, cert, m.cert, pub, m.priv)
+	cert, err := x509.CreateCertificate(rand.Reader, template, m.cert, pub, m.priv)
 
 	if err != nil {
 		return nil, &CertInternalError{}
 	}
 
-	return generatePem(CERT, b), nil
+	return generatePem(CERT, cert), nil
+}
+
+func (m *CertManager) SignCSR(s string) ([]byte, proto.VerifyError) {
+
+	cert, err := m.createCertificate(s)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if m.cache.SAdd("pub", s) != nil {
+		return nil, &CertInternalError{}
+	}
+
+	return cert, nil
+}
+
+func (m *CertManager) ResignCSR(s string) ([]byte, proto.VerifyError) {
+	if valid, err := m.cache.SIsmember("pub", s); !valid || err != nil {
+		return nil, &PubNotFoundError{}
+	}
+	return m.createCertificate(s)
 }
 
 func (m *CertManager) VerifyCert(data []byte) (bool, proto.VerifyError) {

@@ -12,6 +12,7 @@ type CertUnauthorizedError struct{}
 type CertInternalError struct{}
 type PubDecodeError struct{}
 type PubFormatError struct{}
+type PubNotFoundError struct{}
 type BadRequestError struct{}
 type FileInternalError struct{}
 type FileFormatError struct{}
@@ -35,6 +36,17 @@ func (e *PubDecodeError) Message() *proto.ResponseMessage {
 	return &proto.ResponseMessage{
 		Code:    "P1002",
 		Message: "PK: Public Key Format Not Matched With ed25519.",
+	}
+}
+
+func (e *PubNotFoundError) Status() int {
+	return http.StatusUnauthorized
+}
+
+func (e *PubNotFoundError) Message() *proto.ResponseMessage {
+	return &proto.ResponseMessage{
+		Code:    "P1003",
+		Message: "PK: Resign Public Key Not Found",
 	}
 }
 

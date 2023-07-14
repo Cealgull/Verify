@@ -47,6 +47,7 @@ func NewVerificationServer(addr string, em *email.EmailManager, cm *cert.CertMan
 	v.ec.POST("/email/verify", v.emailVerify)
 	v.ec.POST("/cert/sign", v.certSign)
 	v.ec.POST("/cert/verify", v.certVerify)
+	v.ec.POST("/cert/resign", v.certResign)
 	return &v
 }
 
@@ -113,6 +114,23 @@ func (v *VerificationServer) certSign(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, CACert{string(cert)})
+}
+
+func (v *VerificationServer) certResign(c echo.Context) error {
+	var req RegisterRequest
+
+	if c.Bind(&req) != nil {
+		return c.JSON(berr.Status(), berr.Message())
+	}
+
+	cert, err := v.cm.ResignCSR(req.Pub)
+
+	if err != nil {
+		return c.JSON(err.Status(), err.Message())
+	}
+
+	return c.JSON(success.Status(), CACert{string(cert)})
+
 }
 
 func (v *VerificationServer) certVerify(c echo.Context) error {

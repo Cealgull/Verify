@@ -90,3 +90,21 @@ func (r *RedisCache) Del(key string) error {
 
 	return nil
 }
+
+func (r *RedisCache) SAdd(set string, elem string) error {
+	res, err := r.client.SAdd(context.Background(), set, elem).Result()
+	fmt.Println(res, err)
+	if err != nil || res != 1 {
+		return &InternalError{}
+	}
+	return nil
+}
+
+func (r *RedisCache) SIsmember(set string, elem string) (bool, error) {
+	res, err := r.client.SIsMember(context.Background(), set, elem).Result()
+	fmt.Println(res, err)
+	if err != nil {
+		return false, &InternalError{}
+	}
+	return res, nil
+}

@@ -69,9 +69,15 @@ func main() {
 
 	certMap := viper.GetStringMap("cert")
 
+	c = cache.NewRedis(redisMap["server"].(string),
+		redisMap["user"].(string),
+		redisMap["secret"].(string),
+		redisMap["db"].(int)+1)
+
 	cm, err := cert.NewCertManager(
 		cert.WithPrivateKey(certMap["priv"].(string)),
 		cert.WithCertificate(certMap["cert"].(string)),
+		cert.WithCache(c),
 	)
 
 	if err != nil {
