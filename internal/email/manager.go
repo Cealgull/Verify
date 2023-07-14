@@ -15,7 +15,7 @@ type EmailDialer struct {
 	from    string
 	todom   string
 	subject string
-  server  *mail.SMTPServer
+	server  *mail.SMTPServer
 }
 
 type DialerOption func(dialer *EmailDialer) error
@@ -35,7 +35,8 @@ func WithClient(host string, port int, from string, secret string) DialerOption 
 		server.Username = from
 		server.Password = secret
 		server.KeepAlive = true
-    dialer.server = server
+		dialer.server = server
+		dialer.from = from
 		return nil
 	}
 }
@@ -58,7 +59,6 @@ func NewEmailDialer(options ...DialerOption) (*EmailDialer, error) {
 	return &dialer, nil
 }
 
-
 func (d *EmailDialer) send(account string, content string) error {
 	to := fmt.Sprintf("%s@%s", account, d.todom)
 	msg := mail.NewMSG()
@@ -67,11 +67,11 @@ func (d *EmailDialer) send(account string, content string) error {
 		SetSubject(d.subject).
 		SetBody(mail.TextPlain, content)
 
-  client, err := d.server.Connect()
+	client, err := d.server.Connect()
 
-  if err != nil {
-     panic(err) 
-  }
+	if err != nil {
+		panic(err)
+	}
 
 	err = msg.Send(client)
 
@@ -192,4 +192,3 @@ func (m *EmailManager) Verify(account string, guess string) (bool, proto.VerifyE
 	return true, nil
 
 }
-

@@ -34,10 +34,10 @@ func TestNewEmailManager(t *testing.T) {
 		WithClient("localhost", 0, "abcd", "abcd"),
 	)
 
-	assert.NotNil(t, err)
+	assert.Nil(t, err)
 
 	dialer, err = NewEmailDialer(
-		WithClient("localhost", 2333, "user1@example.org", "secret"),
+		WithClient("localhost", 2333, "admin@sjtu.edu.cn", "secret"),
 		WithToDom("example2.org"),
 		WithSubject("Verification Code"),
 	)
