@@ -7,20 +7,21 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"math/big"
 	"os"
 	"time"
 
 	"github.com/Cealgull/Verify/internal/proto"
-	base58 "github.com/itchyny/base58-go"
 )
 
 type CertManager struct {
 	priv       ed25519.PrivateKey
 	cert       *x509.Certificate
-	magic      string
+	version    byte
 	expiration time.Duration
 }
 
@@ -51,11 +52,8 @@ func loadPemFromDisk(file string, ftype string) ([]byte, error) {
 		return nil, &InternalError{}
 	}
 
-	b, err := io.ReadAll(f)
+	b, _ := io.ReadAll(f)
 
-	if err != nil {
-		return nil, &InternalError{}
-	}
 	return loadPem(b, ftype)
 }
 
@@ -106,9 +104,9 @@ func WithCertificate(file string) Option {
 	}
 }
 
-func WithMagic(magic string) Option {
+func WithVersion(ver byte) Option {
 	return func(mgr *CertManager) error {
-		mgr.magic = magic
+		mgr.version = ver
 		return nil
 	}
 }
@@ -124,7 +122,7 @@ func NewCertManager(options ...Option) (*CertManager, error) {
 
 	mgr := &CertManager{
 		expiration: time.Duration(10),
-		magic:      "Cealgull",
+		version:    0x01,
 	}
 
 	for _, option := range options {
@@ -136,15 +134,16 @@ func NewCertManager(options ...Option) (*CertManager, error) {
 	return mgr, nil
 }
 
-func pubToAddress(pub []byte, magic string) string {
+func (m *CertManager) pubToAddress(pub []byte) string {
 
-	pubhash := sha256.New().Sum(pub)
-	magicbytes := []byte(magic)
-	magicbytes = append(magicbytes, pubhash...)
-	checksum := sha256.New().Sum(magicbytes)[:4]
-	pubhash = append(pubhash, checksum...)
+	magicbytes := []byte{m.version}
+	payload := append(magicbytes, pub...)
+	checksum := sha256.New().Sum(payload)
+	checksum = sha256.New().Sum(checksum)[:4]
 
-	addr, _ := base58.BitcoinEncoding.Encode(pubhash)
+	payload = append(payload, checksum...)
+
+	addr := hex.EncodeToString(payload)
 
 	return string(addr)
 
@@ -164,18 +163,22 @@ func (m *CertManager) SignCSR(s string) ([]byte, proto.VerifyError) {
 	sn = sn.Lsh(big.NewInt(1), 512)
 	sn, _ = rand.Int(rand.Reader, sn)
 
-	address := pubToAddress(b, m.magic)
+	address := m.pubToAddress(b)
 
 	cert := &x509.Certificate{
 		SerialNumber: sn,
 		Subject: pkix.Name{
-			CommonName: address,
+			CommonName:         "0x" + address,
+			Organization:       []string{"Cealgull"},
+			OrganizationalUnit: []string{"Cealgull Project"},
 		},
 		Issuer:    m.cert.Subject,
 		NotBefore: time.Now(),
 	}
 
 	b, err = x509.CreateCertificate(rand.Reader, cert, m.cert, pub, m.priv)
+
+	fmt.Println(address)
 
 	if err != nil {
 		return nil, &InternalError{}
