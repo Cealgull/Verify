@@ -1,21 +1,28 @@
 package mock
 
 import (
-	"errors"
 	"time"
 
 	"github.com/Cealgull/Verify/internal/cache"
 )
 
 type MockCache struct {
-	m      map[string]string
-	geterr map[string]error
-	seterr map[string]error
-	delerr map[string]error
+	m       map[string]string
+	sets    map[string]map[string]bool
+	geterr  map[string]error
+	seterr  map[string]error
+	setserr map[string]error
+	delerr  map[string]error
 }
 
 func NewMockCache() *MockCache {
-	return &MockCache{make(map[string]string), make(map[string]error), make(map[string]error), make(map[string]error)}
+	return &MockCache{
+		m:       make(map[string]string),
+		sets:    make(map[string]map[string]bool),
+		geterr:  make(map[string]error),
+		seterr:  make(map[string]error),
+		setserr: make(map[string]error),
+		delerr:  make(map[string]error)}
 }
 
 func (r *MockCache) AddGetErr(key string, err error) {
@@ -28,6 +35,10 @@ func (r *MockCache) AddSetErr(key string, err error) {
 
 func (r *MockCache) AddDelErr(key string, err error) {
 	r.delerr[key] = err
+}
+
+func (r *MockCache) AddSetsErr(key string, err error) {
+	r.setserr[key] = err
 }
 
 func (r *MockCache) Get(key string) (string, error) {
@@ -82,9 +93,28 @@ func (r *MockCache) Del(key string) error {
 }
 
 func (r *MockCache) SAdd(set string, key string) error {
-	return errors.New("NOT IMPLEMENTED")
+	if err, f := r.setserr[set]; f {
+		return err
+	}
+	if s, f := r.sets[set]; f {
+		s[key] = true
+	} else {
+		s = make(map[string]bool)
+		s[key] = true
+		r.sets[set] = s
+	}
+	return nil
 }
 
 func (r *MockCache) SIsmember(set string, key string) (bool, error) {
-	return false, errors.New("NOT IMPLEMENTED")
+	if err, f := r.seterr[set]; f {
+		return false, err
+	}
+
+	if _, f := r.sets[set]; !f {
+		return false, &cache.KeyError{}
+	}
+
+	_, f := r.sets[set][key]
+	return f, nil
 }
