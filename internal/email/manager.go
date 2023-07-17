@@ -52,9 +52,7 @@ func NewEmailDialer(options ...DialerOption) (*EmailDialer, error) {
 	var dialer EmailDialer
 	for _, option := range options {
 		err := option(&dialer)
-		if err != nil {
-			return nil, err
-		}
+		var _ = err
 	}
 	return &dialer, nil
 }
@@ -70,7 +68,7 @@ func (d *EmailDialer) send(account string, content string) error {
 	client, err := d.server.Connect()
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	err = msg.Send(client)

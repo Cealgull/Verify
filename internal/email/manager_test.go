@@ -17,6 +17,16 @@ var mgr *EmailManager
 var c *mockcache.MockCache
 var code int
 
+func TestFailedDialer(t *testing.T) {
+	dialer, err := NewEmailDialer(
+		WithClient("localhost", 0, "abcd", "abcd"),
+	)
+
+	assert.Nil(t, err)
+	err = dialer.send("somebody", "hello world")
+	assert.NotNil(t, err)
+}
+
 func TestNewEmailManager(t *testing.T) {
 
 	server = mocksmtp.New(mocksmtp.ConfigurationAttr{
@@ -30,12 +40,6 @@ func TestNewEmailManager(t *testing.T) {
 	assert.Nil(t, err)
 
 	var dialer *EmailDialer
-
-	_, err = NewEmailDialer(
-		WithClient("localhost", 0, "abcd", "abcd"),
-	)
-
-	assert.Nil(t, err)
 
 	dialer, err = NewEmailDialer(
 		WithClient("localhost", 2333, "admin@sjtu.edu.cn", "secret"),
@@ -68,23 +72,30 @@ func TestEmailSign(t *testing.T) {
 
 	code, err = mgr.Sign("user1")
 	assert.IsType(t, &DuplicateEmailError{}, err)
-	fmt.Println(err.Status(), err.Message())
+	var _ = err.Status()
+	var _ = err.Message()
 
 	c.AddGetErr("user1", &cache.InternalError{})
 	_, err = mgr.Sign("user1")
 	assert.IsType(t, &EmailInternalError{}, err)
-	fmt.Println(err.Status(), err.Message())
+	var _ = err.Status()
+	var _ = err.Message()
 
 	_, err = mgr.Sign("@ssjft=")
 	assert.IsType(t, &AccountFormatError{}, err)
-	fmt.Println(err.Status(), err.Message())
+	var _ = err.Status()
+	var _ = err.Message()
 
 	c.AddSetErr("user2", &cache.InternalError{})
 	_, err = mgr.Sign("user2")
 	assert.IsType(t, &EmailInternalError{}, err)
+	var _ = err.Status()
+	var _ = err.Message()
 
 	_, err = mgr.Sign("user3")
 	assert.IsType(t, &EmailDialingError{}, err)
+	var _ = err.Status()
+	var _ = err.Message()
 
 	code, err = mgr.Sign("user4")
 	assert.Nil(t, err)
@@ -117,7 +128,9 @@ func TestEmailVerify(t *testing.T) {
 		}
 	}
 
-	f, _ = mgr.Verify("user4", fmt.Sprintf("%06d", guess))
+	f, err = mgr.Verify("user4", fmt.Sprintf("%06d", guess))
+	var _ = err.Status()
+	var _ = err.Message()
 	assert.False(t, f)
 
 	f, _ = mgr.Verify("user4", fmt.Sprintf("%06d", code))
