@@ -30,20 +30,29 @@ func TestVerify(t *testing.T) {
 	msg1 := "hello world"
 	msg2 := "goodbye world"
 
+	sigb64 := "abcdefg"
+
+	valid, err := mgr.Verify(msg1, sigb64)
+	assert.False(t, valid)
+	assert.NotNil(t, err)
+	var _ = err.Status()
+	var _ = err.Message()
+
 	sig := anon.Sign(edwards25519.NewBlakeSHA256Ed25519(), []byte(msg1), kp.Pubs, nil, kp.Idx, kp.Priv)
-	sigb64 := base64.StdEncoding.EncodeToString(sig)
+	sigb64 = base64.StdEncoding.EncodeToString(sig)
 
-	test, _ := mgr.Verify(msg1, sigb64)
-
-	assert.True(t, test)
+	valid, _ = mgr.Verify(msg1, sigb64)
+	assert.True(t, valid)
 	assert.Equal(t, 1, mgr.cnt)
 
-	test, _ = mgr.Verify(msg2, sigb64)
-	assert.False(t, test)
+	valid, err = mgr.Verify(msg2, sigb64)
+	assert.False(t, valid)
+	var _ = err.Status()
+	var _ = err.Message()
 
 	mgr.cnt = 15
-	test, _ = mgr.Verify(msg1, sigb64)
-	assert.True(t, test)
+	valid, _ = mgr.Verify(msg1, sigb64)
+	assert.True(t, valid)
 	assert.Equal(t, 0, mgr.cnt)
 
 }
