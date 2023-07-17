@@ -7,6 +7,7 @@ services:
             - '8080:8080'
         volumes:
             - ./configs/config.yaml:/etc/cealgull-verify/config.yaml
+            - ./crypto:/etc/cealgull-verify/crypto
         networks:
             - verify-network
     keydb:

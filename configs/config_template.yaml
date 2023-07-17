@@ -5,6 +5,7 @@ email:
         from: alice@org1.example.com
         todom: org2.example.com
         secret: secret
+        subject: '[Cealgull] Verification Code'
     redis:
         server: keydb.cealgull.verify:6379
         user: ''
@@ -14,8 +15,8 @@ email:
     coderule: '[0-9]{6}'
     accrule: '^[a-zA-Z0-9-_\.]{3,50}$'
 cert:
-    priv: './crypto/priv.pem'
-    cert: './crypto/cert.pem'
+    priv: '/etc/cealgull-verify/crypto/priv.pem'
+    cert: '/etc/cealgull-verify/crypto/cert.pem'
 keyset:
     nr_mem: 64
     cap: 64
