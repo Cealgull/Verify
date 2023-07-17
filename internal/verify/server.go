@@ -26,7 +26,7 @@ type EmailRequest struct {
 	Code    string `json:"code"`
 }
 
-type RegisterRequest struct {
+type CertRequest struct {
 	Pub string `json:"pub"`
 }
 
@@ -88,7 +88,7 @@ func (v *VerificationServer) emailVerify(c echo.Context) error {
 }
 
 func (v *VerificationServer) certSign(c echo.Context) error {
-	var req RegisterRequest
+	var req CertRequest
 
 	if c.Bind(&req) != nil {
 		return c.JSON(berr.Status(), berr.Message())
@@ -96,12 +96,13 @@ func (v *VerificationServer) certSign(c echo.Context) error {
 
 	sigb64 := c.Request().Header.Get("signature")
 
+	//TODO: Remove it when client side wasm support is done.
+
 	if sigb64 != "HACK" {
 		if sigb64 == "" {
 			return c.JSON(bsig.Status(), bsig.Message())
 		}
 
-		// TODO: Add verificaton error checking
 		ok, err := v.sm.Verify(req.Pub, sigb64)
 
 		if !ok && err != nil {
@@ -119,7 +120,7 @@ func (v *VerificationServer) certSign(c echo.Context) error {
 }
 
 func (v *VerificationServer) certResign(c echo.Context) error {
-	var req RegisterRequest
+	var req CertRequest
 
 	if c.Bind(&req) != nil {
 		return c.JSON(berr.Status(), berr.Message())
