@@ -73,7 +73,7 @@ func TestNewVerificationServer(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	verify = NewVerificationServer("localhost1:9999", em, cm, km, ts)
+	verify = NewVerificationServer("0.0.0.1", 20000, em, cm, km, ts)
 
 }
 

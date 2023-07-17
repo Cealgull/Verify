@@ -12,7 +12,8 @@ type RedisCache struct {
 	client *redis.Client
 }
 
-func NewRedis(addr string, user string, secret string, db int) *RedisCache {
+func NewRedis(host string, port int, user string, secret string, db int) *RedisCache {
+	addr := fmt.Sprintf("%s:%d", host, port)
 	client := redis.NewClient(&redis.Options{
 		Addr:     addr,
 		Username: user,
@@ -92,9 +93,8 @@ func (r *RedisCache) Del(key string) error {
 }
 
 func (r *RedisCache) SAdd(set string, elem string) error {
-	res, err := r.client.SAdd(context.Background(), set, elem).Result()
-	fmt.Println(res, err)
-	if err != nil || res != 1 {
+	_, err := r.client.SAdd(context.Background(), set, elem).Result()
+	if err != nil {
 		return &InternalError{}
 	}
 	return nil

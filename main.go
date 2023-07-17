@@ -1,10 +1,9 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/Cealgull/Verify/internal/cache"
 	"github.com/Cealgull/Verify/internal/cert"
+	"github.com/Cealgull/Verify/internal/config"
 	"github.com/Cealgull/Verify/internal/email"
 	"github.com/Cealgull/Verify/internal/keyset"
 	"github.com/Cealgull/Verify/internal/verify"
@@ -29,54 +28,55 @@ func main() {
 		logger.Panic(err.Error())
 	}
 
-	emailMap := viper.GetStringMap("email")
-	dialerMap := emailMap["dialer"].(map[string]interface{})
+	var conf config.VerifyConfig
+
+	err = viper.Unmarshal(&conf)
+
+	if err != nil {
+		logger.Panic(err.Error())
+	}
 
 	dialer, err := email.NewEmailDialer(
-		email.WithClient(dialerMap["host"].(string),
-			dialerMap["port"].(int),
-			dialerMap["from"].(string),
-			dialerMap["secret"].(string)),
-		email.WithToDom(dialerMap["todom"].(string)),
-		email.WithSubject(dialerMap["subject"].(string)),
+		email.WithClient(conf.Email.Dialer.Host,
+			conf.Email.Dialer.Port,
+			conf.Email.Dialer.From,
+			conf.Email.Dialer.Secret),
+		email.WithToDom(conf.Email.Dialer.Todom),
+		email.WithSubject(conf.Email.Dialer.Subject),
 	)
 
 	if err != nil {
 		logger.Panic(err.Error())
 	}
 
-	redisMap := emailMap["redis"].(map[string]interface{})
-
-	if err != nil {
-		logger.Panic(err.Error())
-	}
-
-	c := cache.NewRedis(redisMap["server"].(string),
-		redisMap["user"].(string),
-		redisMap["secret"].(string),
-		redisMap["db"].(int))
+	c := cache.NewRedis(conf.Email.Redis.Host,
+		conf.Email.Redis.Port,
+		conf.Email.Redis.User,
+		conf.Email.Redis.Secret,
+		conf.Email.Redis.DB)
 
 	em, err := email.NewEmailManager(
-		email.WithCodeExp(emailMap["coderule"].(string)),
+		email.WithCodeExp(conf.Email.Coderule),
 		email.WithEmailDialer(dialer),
 		email.WithCache(c),
-		email.WithAccExp(emailMap["accrule"].(string)),
-		email.WithEmailTemplate(emailMap["template"].(string)),
+		email.WithAccExp(conf.Email.Accrule),
+		email.WithEmailTemplate(conf.Email.Template),
 	)
+
 	if err != nil {
 		logger.Panic(err.Error())
 	}
 
-	certMap := viper.GetStringMap("cert")
-
-	c = cache.NewRedis(redisMap["server"].(string),
-		redisMap["user"].(string),
-		redisMap["secret"].(string),
-		redisMap["db"].(int)+1)
+	c = cache.NewRedis(conf.Email.Redis.Host,
+		conf.Email.Redis.Port,
+		conf.Email.Redis.User,
+		conf.Email.Redis.Secret,
+		(conf.Email.Redis.DB+1)%10,
+	)
 
 	cm, err := cert.NewCertManager(
-		cert.WithPrivateKey(certMap["priv"].(string)),
-		cert.WithCertificate(certMap["cert"].(string)),
+		cert.WithPrivateKey(conf.Cert.Priv),
+		cert.WithCertificate(conf.Cert.Cert),
 		cert.WithCache(c),
 	)
 
@@ -84,22 +84,19 @@ func main() {
 		logger.Panic(err.Error())
 	}
 
-	keyMap := viper.GetStringMap("keyset")
-	km, err := keyset.NewKeyManager(keyMap["nr_mem"].(int),
-		keyMap["cap"].(int))
+	km, err := keyset.NewKeyManager(
+		conf.Keyset.NR_mem,
+		conf.Keyset.Cap,
+	)
 
 	if err != nil {
 		logger.Panic(err.Error())
 	}
 
-	turnstileMap := viper.GetStringMapString("turnstile")
-	ts := turnstile.NewTurnstile(turnstileMap["secret"])
+	ts := turnstile.NewTurnstile(conf.Turnstile.Secret)
 
-	verifyMap := viper.GetStringMap("verify")
 	server := verify.NewVerificationServer(
-		fmt.Sprintf("%s:%d",
-			verifyMap["host"].(string),
-			verifyMap["port"].(int)),
+		conf.Verify.Host, conf.Verify.Port,
 		em, cm, km, ts)
 
 	server.Start()

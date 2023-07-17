@@ -19,7 +19,7 @@ func TestNewRedisClient(t *testing.T) {
 	client, mock = redismock.NewClientMock()
 
 	normalCache = &RedisCache{client}
-	incorrectCache = NewRedis("localhost:0", "", "", 0)
+	incorrectCache = NewRedis("localhost", 0, "", "", 0)
 }
 
 func TestSet(t *testing.T) {

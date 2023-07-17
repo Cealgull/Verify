@@ -1,6 +1,7 @@
 package verify
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/Cealgull/Verify/internal/cert"
@@ -37,8 +38,9 @@ var berr *GenericBindingError = &GenericBindingError{}
 var bsig *SignatureMissingError = &SignatureMissingError{}
 var success *VerifySuccess = &VerifySuccess{}
 
-func NewVerificationServer(addr string, em *email.EmailManager, cm *cert.CertManager, km *keyset.KeyManager, ts *turnstile.Turnstile) *VerificationServer {
+func NewVerificationServer(host string, port int, em *email.EmailManager, cm *cert.CertManager, km *keyset.KeyManager, ts *turnstile.Turnstile) *VerificationServer {
 
+	addr := fmt.Sprintf("%s:%d", host, port)
 	ec := echo.New()
 	v := VerificationServer{addr, ec, em, cm, km, ts}
 	v.ec.Use(middleware.Logger())
