@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -41,11 +40,9 @@ func TestGet(t *testing.T) {
 	mock.ExpectGet("user2").RedisNil()
 	_, err = normalCache.Get("user2")
 	assert.IsType(t, &KeyError{}, err)
-	fmt.Println(err.Error())
 
 	_, err = incorrectCache.Get("user1")
 	assert.IsType(t, &InternalError{}, err)
-	fmt.Println(err.Error())
 
 	mock.ExpectGetDel("user1").SetVal("code1")
 	res, err = normalCache.GetDel("user1")
@@ -79,6 +76,28 @@ func TestDel(t *testing.T) {
 	mock.ExpectDel("123").SetVal(0)
 	err = normalCache.Del("123")
 	assert.IsType(t, &KeyError{}, err)
+	var _ = err.Error()
 	err = incorrectCache.Del("123")
 	assert.IsType(t, &InternalError{}, err)
+	var _ = err.Error()
+}
+
+func TestSAdd(t *testing.T) {
+	mock.ExpectSAdd("pub", "123").SetVal(1)
+	err := normalCache.SAdd("pub", "123")
+	assert.Nil(t, err)
+
+	err = incorrectCache.SAdd("pub", "123")
+	assert.NotNil(t, err)
+}
+
+func TestSIsmember(t *testing.T) {
+	mock.ExpectSIsMember("pub", "123").SetVal(true)
+	valid, err := normalCache.SIsmember("pub", "123")
+	assert.True(t, valid)
+	assert.Nil(t, err)
+
+	valid, err = incorrectCache.SIsmember("pub", "123")
+	assert.False(t, valid)
+	assert.NotNil(t, err)
 }

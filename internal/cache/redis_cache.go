@@ -102,7 +102,6 @@ func (r *RedisCache) SAdd(set string, elem string) error {
 
 func (r *RedisCache) SIsmember(set string, elem string) (bool, error) {
 	res, err := r.client.SIsMember(context.Background(), set, elem).Result()
-	fmt.Println(res, err)
 	if err != nil {
 		return false, &InternalError{}
 	}
