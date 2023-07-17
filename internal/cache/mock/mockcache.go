@@ -41,6 +41,10 @@ func (r *MockCache) AddSetsErr(key string, err error) {
 	r.setserr[key] = err
 }
 
+func (r *MockCache) DelSetsErr(key string) {
+	delete(r.setserr, key)
+}
+
 func (r *MockCache) Get(key string) (string, error) {
 	if err, f := r.geterr[key]; f {
 		return "", err
@@ -107,7 +111,7 @@ func (r *MockCache) SAdd(set string, key string) error {
 }
 
 func (r *MockCache) SIsmember(set string, key string) (bool, error) {
-	if err, f := r.seterr[set]; f {
+	if err, f := r.setserr[set]; f {
 		return false, err
 	}
 
@@ -116,5 +120,6 @@ func (r *MockCache) SIsmember(set string, key string) (bool, error) {
 	}
 
 	_, f := r.sets[set][key]
+
 	return f, nil
 }

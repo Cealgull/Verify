@@ -217,10 +217,19 @@ func (m *CertManager) SignCSR(s string) ([]byte, proto.VerifyError) {
 }
 
 func (m *CertManager) ResignCSR(s string) ([]byte, proto.VerifyError) {
-	if valid, err := m.cache.SIsmember("pub", s); !valid || err != nil {
+
+	valid, err := m.cache.SIsmember("pub", s)
+
+	if err != nil {
+		return nil, &CertInternalError{}
+	}
+
+	if !valid {
 		return nil, &PubNotFoundError{}
 	}
+
 	return m.createCertificate(s)
+
 }
 
 func (m *CertManager) VerifyCert(data []byte) (bool, proto.VerifyError) {
