@@ -2,7 +2,6 @@ const path = require("path");
 const { CleanWebpackPlugin } = require("clean-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
 const GlobEntries = require("webpack-glob-entries");
-const { EsbuildPlugin } = require("esbuild-loader");
 
 module.exports = {
   mode: "production",
@@ -16,14 +15,18 @@ module.exports = {
     extensions: [".ts", ".js"],
     fallback: {
       "crypto": false,
+      "buffer": require.resolve("buffer"),
     }
   },
   module: {
     rules: [
       {
         test: /\.ts$/,
-        use: "esbuild-loader",
+        loader: "esbuild-loader",
         exclude: /node_modules/,
+        options: {
+          target: "es2015",
+        }
       },
     ],
   },
@@ -35,7 +38,6 @@ module.exports = {
     colors: true,
   },
   plugins: [
-    new EsbuildPlugin(),
     new CleanWebpackPlugin(),
     // Copy assets to the destination folder
     // see `src/post-file-test.ts` for an test example using an asset
