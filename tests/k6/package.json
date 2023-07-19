@@ -1,0 +1,35 @@
+{
+  "name": "k6-verify-loadtest",
+  "version": "1.0.0",
+  "description": "API LoadTesting Using K6",
+  "main": "none",
+  "author": "ToolmanP",
+  "license": "MIT",
+  "devDependencies": {
+    "@swc/core": "^1.3.70",
+    "@swc/helpers": "^0.5.1",
+    "@types/crypto-js": "^4.1.1",
+    "@types/k6": "^0.45.0",
+    "@types/node": "^20.4.2",
+    "@typescript-eslint/eslint-plugin": "^6.1.0",
+    "@typescript-eslint/parser": "^6.1.0",
+    "clean-webpack-plugin": "^4.0.0",
+    "copy-webpack-plugin": "^11.0.0",
+    "esbuild": "^0.18.14",
+    "esbuild-loader": "^3.0.1",
+    "eslint": "^8.0.1",
+    "eslint-config-standard-with-typescript": "^36.1.0",
+    "eslint-plugin-import": "^2.25.2",
+    "eslint-plugin-n": "^15.0.0 || ^16.0.0 ",
+    "eslint-plugin-promise": "^6.0.0",
+    "prettier": "^3.0.0",
+    "swc-loader": "^0.2.3",
+    "typescript": "^5.1.6",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4",
+    "webpack-glob-entries": "^1.0.1"
+  },
+  "scripts": {
+    "build": "webpack"
+  }
+}
