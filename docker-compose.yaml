@@ -1,13 +1,13 @@
-version: '3.9'
+version: "3.9"
 
 services:
-    verify:
-        build: .
-        ports:
-            - '8080:8080'
-        volumes:
-            - ./configs/config.yaml:/etc/cealgull-verify/config.yaml
-            - ./crypto:/etc/cealgull-verify/crypto
-    keydb:
-        image: eqalpha/keydb
-        hostname: keydb.cealgull.verify
+  verify:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./configs/config.yaml:/etc/cealgull-verify/config.yaml
+      - ./crypto:/etc/cealgull-verify/crypto
+  keydb:
+    image: eqalpha/keydb
+    hostname: keydb.cealgull.verify
