@@ -1,4 +1,8 @@
+# Build
 build
-configs/config.yaml
-configs/ccp.yaml
+
+# Crypto-related
 crypto
+
+# Configuration
+configs/config.yaml
