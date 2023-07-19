@@ -28,8 +28,6 @@ func (r *RedisCache) Get(key string) (string, error) {
 	cmd := r.client.Get(context.Background(), key)
 	res, err := cmd.Result()
 
-	fmt.Println(err)
-
 	if err == redis.Nil {
 		return "", &KeyError{}
 	}
