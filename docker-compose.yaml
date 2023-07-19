@@ -8,12 +8,6 @@ services:
         volumes:
             - ./configs/config.yaml:/etc/cealgull-verify/config.yaml
             - ./crypto:/etc/cealgull-verify/crypto
-        networks:
-            - verify-network
     keydb:
         image: eqalpha/keydb
-        networks:
-            - verify-network
         hostname: keydb.cealgull.verify
-networks:
-    verify-network:
