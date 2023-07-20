@@ -4,7 +4,9 @@ import nacl from "tweetnacl";
 import http from "k6/http";
 
 export default function () {
-  const keypair = nacl.sign.keyPair.fromSeed(new Uint8Array(crypto.randomBytes(32)));
+  const keypair = nacl.sign.keyPair.fromSeed(
+    new Uint8Array(crypto.randomBytes(32))
+  );
   const pub = Buffer.from(keypair.publicKey).toString("base64");
   const headers = {
     "content-type": "application/json",
