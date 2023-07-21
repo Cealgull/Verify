@@ -9,7 +9,10 @@ import (
 	"github.com/Cealgull/Verify/internal/cache"
 	"github.com/Cealgull/Verify/internal/proto"
 	mail "github.com/xhit/go-simple-mail/v2"
+	"go.uber.org/zap"
 )
+
+var logger *zap.SugaredLogger
 
 type EmailDialer struct {
 	from    string
@@ -71,6 +74,8 @@ func (d *EmailDialer) send(account string, content string) error {
 		return err
 	}
 
+	logger.Debugf("Sending verification code to account: %s.", account)
+
 	err = msg.Send(client)
 
 	return err
@@ -128,31 +133,44 @@ func NewEmailManager(options ...ManagerOption) (*EmailManager, error) {
 	for _, option := range options {
 		var _ = option(&mgr)
 	}
+
+	l, _ := zap.NewProduction()
+	logger = l.Sugar()
+
 	return &mgr, nil
 }
 
 func (m *EmailManager) Sign(account string) (int, proto.VerifyError) {
+
 	code := rand.Intn(1000000)
 	content := fmt.Sprintf(m.template, code)
+
+	logger.Infof("Signing verification code for %s.", account)
+
 	if !m.accexp.Match([]byte(account)) {
+		logger.Debugf("Format checking failure for account: %s", account)
 		return -1, &AccountFormatError{}
 	}
 
 	count, err := m.cache.Exists(account)
 
 	if err != nil {
+		logger.Errorf("Redis failure when signing for %s.", account)
 		return -1, &EmailInternalError{}
 	}
 
 	if count != 0 {
+		logger.Debugf("Email code duplicated for account: %s.", account)
 		return -1, &DuplicateEmailError{}
 	}
 
 	if err := m.dialer.send(account, content); err != nil {
+		logger.Debugf("Email dialing for account: %s.", account)
 		return -1, &EmailDialingError{}
 	}
 
 	if err := m.cache.Set(account, fmt.Sprintf("%06d", code), time.Duration(5)*time.Minute); err != nil {
+		logger.Errorf("Redis failure for setting verifcation code buffer for account: %s.", account)
 		return -1, &EmailInternalError{}
 	}
 
@@ -161,31 +179,41 @@ func (m *EmailManager) Sign(account string) (int, proto.VerifyError) {
 
 func (m *EmailManager) Verify(account string, guess string) (bool, proto.VerifyError) {
 
+	logger.Infof("Verifying code for %s.", account)
+
 	if !m.accexp.Match([]byte(account)) {
+		logger.Debugf("Format checking error for account: %s.", account)
 		return false, &AccountFormatError{}
 	}
 
 	if !m.codeexp.Match([]byte(guess)) {
+		logger.Debugf("Format checking error for code: %s.", guess)
 		return false, &CodeFormatError{}
 	}
 
 	truth, err := m.cache.Get(account)
 
 	if _, ok := err.(*cache.InternalError); ok {
+		logger.Errorf("Redis Failure when getting verification truth for guess: %s", guess)
 		return false, &EmailInternalError{}
 	} else if _, ok := err.(*cache.KeyError); ok {
+		logger.Debugf("Account not signed for verification code: %s.", account)
 		return false, &AccountNotFoundError{}
 	}
 
 	if guess != truth {
+		logger.Infof("Code verfication failed for account: %s.", account)
 		return false, &CodeIncorrectError{}
 	}
 
 	err = m.cache.Del(account)
 
 	if _, ok := err.(*cache.InternalError); ok {
+		logger.Errorf("Redis Failure when deleting verification truth for guess: %s", account)
 		return false, &EmailInternalError{}
 	}
+
+	logger.Infof("Code verification succeeded for account: %s.", account)
 
 	return true, nil
 
