@@ -75,6 +75,7 @@ func (m *KeyManager) Verify(msg string, sigb64 string) (bool, proto.VerifyError)
 	}
 
 	m.mtx.Lock()
+	defer m.mtx.Unlock()
 
 	_, err = anon.Verify(m.suite, []byte(msg), m.pubs, nil, sig)
 	m.cnt += 1
@@ -84,21 +85,19 @@ func (m *KeyManager) Verify(msg string, sigb64 string) (bool, proto.VerifyError)
 		m.renewKeySet()
 	}
 
-	m.mtx.Unlock()
-
 	if err != nil {
 		logger.Debugf("Signature verification failed for %s.", sigb64)
 		return false, &SignatureVerificationError{}
 	}
 
 	logger.Debugf("Ring singature verfication success for %s.", sigb64)
-
 	return true, nil
 }
 
 func (m *KeyManager) Dispatch() *keypair.KeyPair {
 
 	m.mtx.Lock()
+	defer m.mtx.Unlock()
 
 	pubs := make(anon.Set, m.nr_mem)
 	idx := rand.Int() % m.nr_mem
@@ -111,8 +110,6 @@ func (m *KeyManager) Dispatch() *keypair.KeyPair {
 		Priv: m.priv[idx],
 		Idx:  idx,
 	}
-
-	m.mtx.Unlock()
 
 	return &t
 }
