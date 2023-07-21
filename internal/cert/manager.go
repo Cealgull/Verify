@@ -7,7 +7,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/pem"
 	"io"
 	"math/big"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/Cealgull/Verify/internal/cache"
 	"github.com/Cealgull/Verify/internal/proto"
+	"go.uber.org/zap"
 )
 
 type CertManager struct {
@@ -31,6 +31,8 @@ const (
 	CSR     = "CERTIFICATE REQUEST"
 	PRIVATE = "PRIVATE KEY"
 )
+
+var logger *zap.SugaredLogger
 
 type Option func(mgr *CertManager) error
 
@@ -143,7 +145,26 @@ func NewCertManager(options ...Option) (*CertManager, error) {
 			return nil, err
 		}
 	}
+
+	l, _ := zap.NewProduction()
+	logger = l.Sugar()
+
 	return mgr, nil
+}
+
+const codeSet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+func (m *CertManager) Base58EncodeString(data []byte) string {
+	x := big.NewInt(0).SetBytes(data)
+	y := big.NewInt(58)
+	zero := big.NewInt(0)
+	r := big.NewInt(0)
+	result := ""
+	for x.Cmp(zero) != 0 {
+		x, r = x.QuoRem(x, y, r)
+		result += string(codeSet[r.Int64()])
+	}
+	return result
 }
 
 func (m *CertManager) pubToAddress(pub []byte) string {
@@ -155,7 +176,7 @@ func (m *CertManager) pubToAddress(pub []byte) string {
 
 	payload = append(payload, checksum...)
 
-	addr := hex.EncodeToString(payload)
+	addr := m.Base58EncodeString(payload)
 
 	return string(addr)
 
@@ -168,10 +189,12 @@ func (m *CertManager) createCertificate(s string) ([]byte, proto.VerifyError) {
 	pub, err := base64.StdEncoding.DecodeString(s)
 
 	if err != nil {
+		logger.Debugf("Base64 decoding error for public key: %s.", s)
 		return nil, &PubDecodeError{}
 	}
 
 	if len(pub) != 32 {
+		logger.Debugf("Invalid ed25519 public key size: %s.", s)
 		return nil, &PubFormatError{}
 	}
 
@@ -180,6 +203,7 @@ func (m *CertManager) createCertificate(s string) ([]byte, proto.VerifyError) {
 	sn, _ = rand.Int(rand.Reader, sn)
 
 	address := m.pubToAddress(pub)
+	logger.Infof("Signing certificate for public andress: 0x%s.", address)
 
 	template := &x509.Certificate{
 		SerialNumber: sn,
@@ -195,13 +219,18 @@ func (m *CertManager) createCertificate(s string) ([]byte, proto.VerifyError) {
 	cert, err := x509.CreateCertificate(rand.Reader, template, m.cert, pub, m.priv)
 
 	if err != nil {
+		logger.Debugf("Error when creating certificates. err: %s", err.Error())
 		return nil, &CertInternalError{}
 	}
+
+	logger.Infof("Signing Completed for address: 0x%s.", address)
 
 	return generatePem(CERT, cert), nil
 }
 
 func (m *CertManager) SignCSR(s string) ([]byte, proto.VerifyError) {
+
+	logger.Infof("Signing Certificate for public key: %s.", s)
 
 	cert, err := m.createCertificate(s)
 
@@ -209,7 +238,8 @@ func (m *CertManager) SignCSR(s string) ([]byte, proto.VerifyError) {
 		return nil, err
 	}
 
-	if m.cache.SAdd("pub", s) != nil {
+	if err := m.cache.SAdd("pub", s); err != nil {
+		logger.Errorf("Redis failure happened when signing %s. err: %s.", err.Error())
 		return nil, &CertInternalError{}
 	}
 
@@ -221,12 +251,16 @@ func (m *CertManager) ResignCSR(s string) ([]byte, proto.VerifyError) {
 	valid, err := m.cache.SIsmember("pub", s)
 
 	if err != nil {
+		logger.Errorf("Redis failure happened when checking existence. err: %s.", err.Error())
 		return nil, &CertInternalError{}
 	}
 
 	if !valid {
+		logger.Debugf("Public Key: %s missing when resigning", s)
 		return nil, &PubNotFoundError{}
 	}
+
+	logger.Infof("Resigning Certificate for public key: %s.", s)
 
 	return m.createCertificate(s)
 
@@ -236,21 +270,29 @@ func (m *CertManager) VerifyCert(data []byte) (bool, proto.VerifyError) {
 
 	b, err := loadPem(data, CERT)
 
+	logger.Info("Responding to new certificate verification request.")
+
 	if _, ok := err.(*FileFormatError); ok {
+		logger.Debug("Wrong certficate pem format when verifying.")
 		return false, &CertFormatError{}
 	} else if _, ok := err.(*FileDecodeError); ok {
+		logger.Debug("Error when decoding certificate pem body.")
 		return false, &CertDecodeError{}
 	}
 
 	cert, err := x509.ParseCertificate(b)
 
 	if err != nil {
+		logger.Debug("Error when loading certificate.")
 		return false, &CertFormatError{}
 	}
 
 	if err := cert.CheckSignatureFrom(m.cert); err != nil {
+		logger.Debug("Certificate is not signed by the current host.")
 		return false, &CertUnauthorizedError{}
 	}
+
+	logger.Info("Certificate verification success.")
 
 	return true, nil
 

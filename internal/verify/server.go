@@ -42,6 +42,7 @@ func NewVerificationServer(host string, port int, em *email.EmailManager, cm *ce
 
 	addr := fmt.Sprintf("%s:%d", host, port)
 	ec := echo.New()
+	ec.HideBanner = true
 	v := VerificationServer{addr, ec, em, cm, km, ts}
 	v.ec.Use(middleware.Logger())
 	v.ec.Use(middleware.Recover())

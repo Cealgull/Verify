@@ -10,7 +10,10 @@ import (
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
 	"go.dedis.ch/kyber/v3/sign/anon"
+	"go.uber.org/zap"
 )
+
+var logger *zap.SugaredLogger
 
 type KeyManager struct {
 	suite  anon.Suite
@@ -36,12 +39,17 @@ func NewKeyManager(nr_mem int, cap int) (*KeyManager, error) {
 		cap:    cap,
 	}
 
+	l, _ := zap.NewProduction()
+	logger = l.Sugar()
+
 	m.renewKeySet()
 
 	return m, nil
 }
 
 func (m *KeyManager) renewKeySet() {
+
+	logger.Info("Renewing the current ring keyset.")
 
 	pubs := make(anon.Set, m.nr_mem)
 	priv := make([]kyber.Scalar, m.nr_mem)
@@ -62,42 +70,46 @@ func (m *KeyManager) Verify(msg string, sigb64 string) (bool, proto.VerifyError)
 	sig, err := base64.StdEncoding.DecodeString(sigb64)
 
 	if err != nil {
+		logger.Debugf("Base64 decoding error for signature: %s.", sigb64)
 		return false, &SignatureDecodeError{}
 	}
 
 	m.mtx.Lock()
+	defer m.mtx.Unlock()
 
 	_, err = anon.Verify(m.suite, []byte(msg), m.pubs, nil, sig)
 	m.cnt += 1
 
 	if m.cnt == m.cap {
+		logger.Infof("Verification hit the capacity. Try renewing the ring keyset.")
 		m.renewKeySet()
 	}
 
-	m.mtx.Unlock()
-
 	if err != nil {
+		logger.Debugf("Signature verification failed for %s.", sigb64)
 		return false, &SignatureVerificationError{}
 	}
 
+	logger.Debugf("Ring singature verfication success for %s.", sigb64)
 	return true, nil
 }
 
 func (m *KeyManager) Dispatch() *keypair.KeyPair {
 
 	m.mtx.Lock()
+	defer m.mtx.Unlock()
 
 	pubs := make(anon.Set, m.nr_mem)
 	idx := rand.Int() % m.nr_mem
 	copy(pubs, m.pubs)
+
+	logger.Infof("Dispatching new ring keypair now.")
 
 	t := keypair.KeyPair{
 		Pubs: pubs,
 		Priv: m.priv[idx],
 		Idx:  idx,
 	}
-
-	m.mtx.Unlock()
 
 	return &t
 }
