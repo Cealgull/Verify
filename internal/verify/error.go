@@ -17,8 +17,12 @@ func (e *SignatureMissingError) Status() int {
 func (e *SignatureMissingError) Message() *proto.ResponseMessage {
 	return &proto.ResponseMessage{
 		Code:    "S0010",
-		Message: "Signature Missing in Header",
+		Message: e.Error(),
 	}
+}
+
+func (e *SignatureMissingError) Error() string {
+	return "Signature Missing in Header."
 }
 
 func (e *GenericBindingError) Status() int {
@@ -28,8 +32,12 @@ func (e *GenericBindingError) Status() int {
 func (e *GenericBindingError) Message() *proto.ResponseMessage {
 	return &proto.ResponseMessage{
 		Code:    "B0001",
-		Message: "Request: Bad Request",
+		Message: e.Error(),
 	}
+}
+
+func (e *GenericBindingError) Error() string {
+	return "Request: Bad Request. Missing some request headers."
 }
 
 func (e *VerifySuccess) Status() int {
@@ -39,6 +47,10 @@ func (e *VerifySuccess) Status() int {
 func (e *VerifySuccess) Message() *proto.ResponseMessage {
 	return &proto.ResponseMessage{
 		Code:    "N0001",
-		Message: "OK",
+		Message: e.Error(),
 	}
+}
+
+func (e *VerifySuccess) Error() string {
+	return "OK"
 }
