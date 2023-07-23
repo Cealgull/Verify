@@ -6,6 +6,7 @@ type ResponseMessage struct {
 }
 
 type VerifyError interface {
+	error
 	Message() *ResponseMessage
 	Status() int
 }

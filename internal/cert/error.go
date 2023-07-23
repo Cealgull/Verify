@@ -18,6 +18,10 @@ type FileInternalError struct{}
 type FileFormatError struct{}
 type FileDecodeError struct{}
 
+func (e *PubFormatError) Error() string {
+	return "PK: Public Key Decode Error."
+}
+
 func (e *PubFormatError) Status() int {
 	return http.StatusBadRequest
 }
@@ -25,9 +29,14 @@ func (e *PubFormatError) Status() int {
 func (e *PubFormatError) Message() *proto.ResponseMessage {
 	return &proto.ResponseMessage{
 		Code:    "P1001",
-		Message: "PK: Public Key Decode Error.",
+		Message: e.Error(),
 	}
 }
+
+func (e *PubDecodeError) Error() string {
+	return "PK: Public Key Format Not Matched With ed25519."
+}
+
 func (e *PubDecodeError) Status() int {
 	return http.StatusBadRequest
 }
@@ -35,8 +44,12 @@ func (e *PubDecodeError) Status() int {
 func (e *PubDecodeError) Message() *proto.ResponseMessage {
 	return &proto.ResponseMessage{
 		Code:    "P1002",
-		Message: "PK: Public Key Format Not Matched With ed25519.",
+		Message: e.Error(),
 	}
+}
+
+func (e *PubNotFoundError) Error() string {
+	return "PK: Resign Public Key Not Found."
 }
 
 func (e *PubNotFoundError) Status() int {
@@ -46,8 +59,12 @@ func (e *PubNotFoundError) Status() int {
 func (e *PubNotFoundError) Message() *proto.ResponseMessage {
 	return &proto.ResponseMessage{
 		Code:    "P1003",
-		Message: "PK: Resign Public Key Not Found",
+		Message: e.Error(),
 	}
+}
+
+func (e *CertInternalError) Error() string {
+	return "Cert: Internal Server Error."
 }
 
 func (e *CertInternalError) Status() int {
@@ -57,8 +74,12 @@ func (e *CertInternalError) Status() int {
 func (e *CertInternalError) Message() *proto.ResponseMessage {
 	return &proto.ResponseMessage{
 		Code:    "C1001",
-		Message: "Cert: Internal Server Error",
+		Message: e.Error(),
 	}
+}
+
+func (e *CertDecodeError) Error() string {
+	return "Cert: Certifiate Decode Error. Please verify your input."
 }
 
 func (e *CertDecodeError) Status() int {
@@ -68,8 +89,12 @@ func (e *CertDecodeError) Status() int {
 func (e *CertDecodeError) Message() *proto.ResponseMessage {
 	return &proto.ResponseMessage{
 		Code:    "C1002",
-		Message: "Cert: Certifiate Decode Error. Please verify your input.",
+		Message: e.Error(),
 	}
+}
+
+func (e *CertFormatError) Error() string {
+	return "Cert: Certifiate Format Error. Please verify your input."
 }
 
 func (e *CertFormatError) Status() int {
@@ -79,8 +104,12 @@ func (e *CertFormatError) Status() int {
 func (e *CertFormatError) Message() *proto.ResponseMessage {
 	return &proto.ResponseMessage{
 		Code:    "C1003",
-		Message: "Cert: Certifiate Format Error. Please verify your input.",
+		Message: e.Error(),
 	}
+}
+
+func (e *CertUnauthorizedError) Error() string {
+	return "Cert: Unauthorized Certificate. Not Signed by Verify."
 }
 
 func (e *CertUnauthorizedError) Status() int {
@@ -90,7 +119,7 @@ func (e *CertUnauthorizedError) Status() int {
 func (e *CertUnauthorizedError) Message() *proto.ResponseMessage {
 	return &proto.ResponseMessage{
 		Code:    "A0240",
-		Message: "Cert: Unauthorized Certificate. Not Signed by Verify.",
+		Message: e.Error(),
 	}
 }
 
