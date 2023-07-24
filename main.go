@@ -14,9 +14,11 @@ import (
 
 func main() {
 
-	logger, _ := zap.NewProduction(
+	l, _ := zap.NewProduction(
 		zap.WithCaller(true),
 	)
+
+	logger := l.Sugar()
 
 	logger.Debug("Loading Verification Server Configuration.")
 
@@ -43,6 +45,7 @@ func main() {
 	logger.Debug("Initializing the email dialer.")
 
 	dialer, err := email.NewEmailDialer(
+		logger,
 		email.WithClient(vericonf.Email.Dialer.Host,
 			vericonf.Email.Dialer.Port,
 			vericonf.Email.Dialer.From,
@@ -64,6 +67,7 @@ func main() {
 		vericonf.Email.Redis.DB)
 
 	em, err := email.NewEmailManager(
+		logger,
 		email.WithCodeExp(vericonf.Email.Coderule),
 		email.WithEmailDialer(dialer),
 		email.WithCache(c),
@@ -87,6 +91,7 @@ func main() {
 	logger.Debug("Initializing the certificate authority.")
 
 	cm, err := cert.NewCertManager(
+		logger,
 		cert.WithPrivateKey(vericonf.Cert.Priv),
 		cert.WithCertificate(vericonf.Cert.Cert),
 		cert.WithCache(c),
@@ -99,6 +104,7 @@ func main() {
 	logger.Debug("Initializing the signing utility.")
 
 	km, err := keyset.NewKeyManager(
+		logger,
 		vericonf.Keyset.NR_mem,
 		vericonf.Keyset.Cap,
 	)

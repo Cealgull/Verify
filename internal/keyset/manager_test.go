@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
 	"go.dedis.ch/kyber/v3/sign/anon"
+	"go.uber.org/zap"
 )
 
 var mgr *KeyManager
@@ -15,7 +16,9 @@ var kp *keypair.KeyPair
 
 func TestNewKeyManager(t *testing.T) {
 
-	mgr, _ = NewKeyManager(16, 16)
+	l, _ := zap.NewProduction()
+
+	mgr, _ = NewKeyManager(l.Sugar(), 16, 16)
 
 	assert.Equal(t, 16, mgr.cap)
 	assert.Equal(t, 16, mgr.nr_mem)
