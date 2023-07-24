@@ -13,10 +13,9 @@ import (
 	"go.uber.org/zap"
 )
 
-var logger *zap.SugaredLogger
-
 type KeyManager struct {
 	suite  anon.Suite
+	logger *zap.SugaredLogger
 	pubs   anon.Set
 	priv   []kyber.Scalar
 	nr_mem int
@@ -25,12 +24,13 @@ type KeyManager struct {
 	cap    int
 }
 
-func NewKeyManager(nr_mem int, cap int) (*KeyManager, error) {
+func NewKeyManager(logger *zap.SugaredLogger, nr_mem int, cap int) (*KeyManager, error) {
 
 	suite := edwards25519.NewBlakeSHA256Ed25519()
 
 	m := &KeyManager{
 		suite:  suite,
+		logger: logger,
 		pubs:   nil,
 		priv:   nil,
 		nr_mem: nr_mem,
@@ -39,9 +39,6 @@ func NewKeyManager(nr_mem int, cap int) (*KeyManager, error) {
 		cap:    cap,
 	}
 
-	l, _ := zap.NewProduction()
-	logger = l.Sugar()
-
 	m.renewKeySet()
 
 	return m, nil
@@ -49,7 +46,7 @@ func NewKeyManager(nr_mem int, cap int) (*KeyManager, error) {
 
 func (m *KeyManager) renewKeySet() {
 
-	logger.Info("Renewing the current ring keyset.")
+	m.logger.Info("Renewing the current ring keyset.")
 
 	pubs := make(anon.Set, m.nr_mem)
 	priv := make([]kyber.Scalar, m.nr_mem)
@@ -70,7 +67,7 @@ func (m *KeyManager) Verify(msg string, sigb64 string) (bool, proto.VerifyError)
 	sig, err := base64.StdEncoding.DecodeString(sigb64)
 
 	if err != nil {
-		logger.Debugf("Base64 decoding error for signature: %s.", sigb64)
+		m.logger.Debugf("Base64 decoding error for signature: %s.", sigb64)
 		return false, &SignatureDecodeError{}
 	}
 
@@ -81,16 +78,16 @@ func (m *KeyManager) Verify(msg string, sigb64 string) (bool, proto.VerifyError)
 	m.cnt += 1
 
 	if m.cnt == m.cap {
-		logger.Infof("Verification hit the capacity. Try renewing the ring keyset.")
+		m.logger.Infof("Verification hit the capacity. Try renewing the ring keyset.")
 		m.renewKeySet()
 	}
 
 	if err != nil {
-		logger.Debugf("Signature verification failed for %s.", sigb64)
+		m.logger.Debugf("Signature verification failed for %s.", sigb64)
 		return false, &SignatureVerificationError{}
 	}
 
-	logger.Debugf("Ring singature verfication success for %s.", sigb64)
+	m.logger.Debugf("Ring singature verfication success for %s.", sigb64)
 	return true, nil
 }
 
@@ -103,7 +100,7 @@ func (m *KeyManager) Dispatch() *keypair.KeyPair {
 	idx := rand.Int() % m.nr_mem
 	copy(pubs, m.pubs)
 
-	logger.Infof("Dispatching new ring keypair now.")
+	m.logger.Infof("Dispatching new ring keypair now.")
 
 	t := keypair.KeyPair{
 		Pubs: pubs,

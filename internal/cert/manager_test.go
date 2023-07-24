@@ -10,6 +10,7 @@ import (
 	"github.com/Cealgull/Verify/internal/cache"
 	"github.com/Cealgull/Verify/internal/cache/mock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 var mgr *CertManager
@@ -18,6 +19,7 @@ var pubb64 string
 var cert []byte
 
 func TestLoadPem(t *testing.T) {
+
 	b, err := loadPemFromDisk("./notexists", CERT)
 	assert.Nil(t, b)
 	assert.Error(t, err)
@@ -43,7 +45,11 @@ func TestNewCertManager(t *testing.T) {
 	var err error
 	c = mock.NewMockCache()
 
+	l, _ := zap.NewProduction()
+	logger := l.Sugar()
+
 	mgr, err := NewCertManager(
+		logger,
 		WithVersion(0x02),
 		WithExpiration(32),
 		WithPrivateKey("./notexists"),
@@ -52,18 +58,21 @@ func TestNewCertManager(t *testing.T) {
 	assert.Error(t, err)
 
 	mgr, err = NewCertManager(
+		logger,
 		WithCertificate("./notexists"),
 	)
 	assert.Nil(t, mgr)
 	assert.Error(t, err)
 
 	mgr, err = NewCertManager(
+		logger,
 		WithPrivateKey("./testdata/priv_invalid.pem"),
 	)
 	assert.Nil(t, mgr)
 	assert.Error(t, err)
 
 	mgr, err = NewCertManager(
+		logger,
 		WithCertificate("./testdata/cert_invalid.pem"),
 	)
 	assert.Nil(t, mgr)
@@ -73,7 +82,11 @@ func TestNewCertManager(t *testing.T) {
 
 func TestSignPublicKey(t *testing.T) {
 
+	l, _ := zap.NewProduction()
+	logger := l.Sugar()
+
 	mgr, _ = NewCertManager(
+		logger,
 		WithPrivateKey("./testdata/priv.pem"),
 		WithCertificate("./testdata/cert_unsigned.pem"),
 		WithCache(c))
@@ -98,6 +111,7 @@ func TestSignPublicKey(t *testing.T) {
 	var _ = err.Message()
 
 	mgr, _ = NewCertManager(
+		logger,
 		WithPrivateKey("./testdata/priv.pem"),
 		WithCertificate("./testdata/cert.pem"),
 		WithCache(c))

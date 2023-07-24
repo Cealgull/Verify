@@ -10,6 +10,7 @@ import (
 	"github.com/Cealgull/Verify/internal/proto"
 	mocksmtp "github.com/mocktools/go-smtp-mock/v2"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 var server *mocksmtp.Server
@@ -18,7 +19,10 @@ var c *mockcache.MockCache
 var code int
 
 func TestFailedDialer(t *testing.T) {
+
+	l, _ := zap.NewProduction()
 	dialer, err := NewEmailDialer(
+		l.Sugar(),
 		WithClient("localhost", 0, "abcd", "abcd"),
 	)
 
@@ -28,6 +32,8 @@ func TestFailedDialer(t *testing.T) {
 }
 
 func TestNewEmailManager(t *testing.T) {
+
+	l, _ := zap.NewProduction()
 
 	server = mocksmtp.New(mocksmtp.ConfigurationAttr{
 		PortNumber:              2333,
@@ -42,6 +48,7 @@ func TestNewEmailManager(t *testing.T) {
 	var dialer *EmailDialer
 
 	dialer, err = NewEmailDialer(
+		l.Sugar(),
 		WithClient("localhost", 2333, "admin@sjtu.edu.cn", "secret"),
 		WithToDom("example2.org"),
 		WithSubject("Verification Code"),
@@ -52,6 +59,7 @@ func TestNewEmailManager(t *testing.T) {
 	c = mockcache.NewMockCache()
 
 	mgr, err = NewEmailManager(
+		l.Sugar(),
 		WithEmailDialer(dialer),
 		WithEmailTemplate("The Verification is %06d"),
 		WithAccExp("^[a-zA-Z0-9-_\\.]{3,50}$"),

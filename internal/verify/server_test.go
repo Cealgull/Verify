@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	edsuite "go.dedis.ch/kyber/v3/group/edwards25519"
 	"go.dedis.ch/kyber/v3/sign/anon"
+	"go.uber.org/zap"
 )
 
 var smtpServer *mocksmtp.Server
@@ -39,6 +40,9 @@ var cacert CACert
 
 func TestNewVerificationServer(t *testing.T) {
 
+	l, _ := zap.NewProduction()
+	logger := l.Sugar()
+
 	smtpServer = mocksmtp.New(mocksmtp.ConfigurationAttr{
 		PortNumber:              2000,
 		LogToStdout:             false,
@@ -50,6 +54,7 @@ func TestNewVerificationServer(t *testing.T) {
 	assert.Nil(t, err)
 
 	dialer, err = email.NewEmailDialer(
+		logger,
 		email.WithClient("localhost", 2000, "user1@example1.org", "secret"),
 		email.WithToDom("example2.org"),
 		email.WithSubject("Testing"),
@@ -60,6 +65,7 @@ func TestNewVerificationServer(t *testing.T) {
 	mc = mockcache.NewMockCache()
 
 	em, err := email.NewEmailManager(
+		logger,
 		email.WithEmailDialer(dialer),
 		email.WithCache(mc),
 		email.WithAccExp("^[a-zA-Z0-9-_\\.]{3,50}$"),
@@ -68,12 +74,13 @@ func TestNewVerificationServer(t *testing.T) {
 	)
 	assert.Nil(t, err)
 
-	km, err := keyset.NewKeyManager(16, 16)
+	km, err := keyset.NewKeyManager(logger, 16, 16)
 	assert.NoError(t, err)
 
 	ts := turnstile.NewTurnstile("secret")
 
 	cm, err := cert.NewCertManager(
+		logger,
 		cert.WithCertificate("./testdata/cert.pem"),
 		cert.WithPrivateKey("./testdata/priv.pem"),
 		cert.WithCache(mc),
