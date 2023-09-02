@@ -1,6 +1,6 @@
 module github.com/Cealgull/Verify
 
-go 1.18
+go 1.20
 
 require (
 	github.com/go-redis/redismock/v9 v9.0.3
