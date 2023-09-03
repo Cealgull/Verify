@@ -10,7 +10,6 @@ require (
 	github.com/spf13/viper v1.1.1
 	github.com/stretchr/testify v1.8.1
 	github.com/xhit/go-simple-mail/v2 v2.15.0
-	go.dedis.ch/kyber/v3 v3.1.0
 	go.uber.org/zap v1.24.0
 )
 
@@ -38,7 +37,6 @@ require (
 	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	go.dedis.ch/fixbuf v1.0.3 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
