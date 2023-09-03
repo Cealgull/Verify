@@ -24,8 +24,6 @@ import (
 	"github.com/labstack/echo/v4"
 	mocksmtp "github.com/mocktools/go-smtp-mock/v2"
 	"github.com/stretchr/testify/assert"
-	edsuite "go.dedis.ch/kyber/v3/group/edwards25519"
-	"go.dedis.ch/kyber/v3/sign/anon"
 	"go.uber.org/zap"
 )
 
@@ -33,7 +31,8 @@ var smtpServer *mocksmtp.Server
 var mc *mockcache.MockCache
 var verify *VerificationServer
 var dialer *email.EmailDialer
-var kp keypair.KeyPair
+var kp *keypair.RingKeyPair
+var km *keyset.KeyManager
 var errjson = "114514"
 var code string
 var cacert CACert
@@ -72,9 +71,9 @@ func TestNewVerificationServer(t *testing.T) {
 		email.WithEmailTemplate("this is a testing code %06d"),
 		email.WithCodeExp("^[0-9]{6}$"),
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
-	km, err := keyset.NewKeyManager(logger, 16, 16)
+	km, err = keyset.NewKeyManager(logger, 16, 16)
 	assert.NoError(t, err)
 
 	ts := turnstile.NewTurnstile("secret")
@@ -203,12 +202,11 @@ func TestCertSign(t *testing.T) {
 
 	pub, _, _ := ed25519.GenerateKey(nil)
 	pubb64 = base64.StdEncoding.EncodeToString(pub)
+	kp = km.Dispatch()
 	certreq := CertRequest{pubb64}
 	data, _ := json.Marshal(&certreq)
 
-	suite := edsuite.NewBlakeSHA256Ed25519()
-	sig := anon.Sign(suite, []byte(pubb64), kp.Pubs, nil, kp.Idx, kp.Priv)
-	sigb64 := base64.StdEncoding.EncodeToString(sig)
+	sigb64 := keypair.RingSign(kp, pubb64)
 
 	// test header missing
 	req := httptest.NewRequest(http.MethodPost, "/cert/sign", bytes.NewReader(data))
