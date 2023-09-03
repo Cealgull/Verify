@@ -1,120 +1,61 @@
 package keypair
 
+// #cgo CFLAGS: -O2 -Wall
+// #cgo LDFLAGS: -lcrypto
+// #include "ringsig.h"
+// #include "string.h"
+import "C"
 import (
-	"encoding/base64"
-	"encoding/json"
-	"strings"
-
-	"go.dedis.ch/kyber/v3"
-	"go.dedis.ch/kyber/v3/group/edwards25519"
-	"go.dedis.ch/kyber/v3/sign/anon"
+	"math/rand"
+	"unsafe"
 )
 
-func ScalarToString(scalar kyber.Scalar) string {
-	data, _ := scalar.MarshalBinary()
-	return base64.StdEncoding.EncodeToString(data)
+type RingKeyset struct {
+	Nr_mem int
 }
 
-func PointsToStrings(points anon.Set) string {
-	out := make([]string, len(points))
-	for i, point := range points {
-		data, _ := point.MarshalBinary()
-		out[i] = base64.StdEncoding.EncodeToString(data)
-	}
-	return strings.Join(out, ",")
+type RingKeyPair struct {
+	Pubs   string `json:"pubs"`
+	Priv   string `json:"priv"`
+	Nr_mem int    `json:"nr_mem"`
+	Mine   int    `json:"mine"`
 }
 
-func StringToScalar(m string) (kyber.Scalar, error) {
-	suite := edwards25519.NewBlakeSHA256Ed25519()
-	scalar := suite.Scalar()
-	data, err := base64.StdEncoding.DecodeString(m)
-
-	if err != nil {
-		return nil, err
-	}
-
-	err = scalar.UnmarshalBinary(data)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return scalar, nil
+func NewRingKeyset(nr_mem int) *RingKeyset {
+	k := &RingKeyset{nr_mem}
+	C.ringsig_keyset_init(C.int(nr_mem))
+	return k
 }
 
-func StringsToPoints(ms string) (anon.Set, error) {
-
-	msgs := strings.Split(ms, ",")
-
-	set := make(anon.Set, len(msgs))
-	suite := edwards25519.NewBlakeSHA256Ed25519()
-
-	for i, msg := range msgs {
-
-		p := suite.Point()
-		data, err := base64.StdEncoding.DecodeString(msg)
-
-		if err != nil {
-			return nil, err
-		}
-
-		err = p.UnmarshalBinary(data)
-
-		if err != nil {
-			return nil, err
-		}
-
-		set[i] = p
-	}
-	return set, nil
+func (k *RingKeyset) Renew() {
+	C.ringsig_keyset_renew(C.int(k.Nr_mem))
 }
 
-type KeyPair struct {
-	Pubs anon.Set     `json:"pubs"`
-	Priv kyber.Scalar `json:"priv"`
-	Idx  int          `json:"idx"`
+func (k *RingKeyset) Dispatch() *RingKeyPair {
+	mine := rand.Intn(k.Nr_mem)
+	kp := C.ringsig_keypair_dispatch(C.int(mine))
+	return &RingKeyPair{Pubs: C.GoString(kp.pubs), Priv: C.GoString(kp.priv), Nr_mem: k.Nr_mem, Mine: mine}
 }
 
-func (t *KeyPair) MarshalJSON() ([]byte, error) {
-	return json.Marshal(&struct {
-		Pubs string `json:"pubs"`
-		Priv string `json:"priv"`
-		Idx  int    `json:"idx"`
-	}{
-		Pubs: PointsToStrings(t.Pubs),
-		Priv: ScalarToString(t.Priv),
-		Idx:  t.Idx,
-	})
+func (k *RingKeyset) Verify(msg string, sig string) bool {
+	cmsg := C.CString(msg)
+	msglen := C.int(len(msg))
+	csigb64 := C.CString(sig)
+	return int(C.ringsig_verify_b64(cmsg, msglen, csigb64)) == 1
 }
 
-func (t *KeyPair) UnmarshalJSON(data []byte) error {
-
-	var s struct {
-		Pubs string `json:"pubs"`
-		Priv string `json:"priv"`
-		Idx  int    `json:"idx"`
+func RingSign(kp *RingKeyPair, msg string) string {
+	cmsg := C.CString(msg)
+	nr_mem := C.int(kp.Nr_mem)
+	siglen := C.ulong(C.ringsig_signb64_len(nr_mem))
+	csig := (*C.char)(C.calloc(1, siglen))
+	spec := C.ringsig_keypair_extern_t{
+		priv:   C.CString(kp.Priv),
+		pubs:   C.CString(kp.Pubs),
+		nr_mem: C.int(kp.Nr_mem),
+		mine:   C.int(kp.Mine),
 	}
-
-	err := json.Unmarshal(data, &s)
-	var _ = err
-
-	priv, err := StringToScalar(s.Priv)
-
-	if err != nil {
-		return err
-	}
-
-	pubs, err := StringsToPoints(s.Pubs)
-
-	if err != nil {
-		return err
-	}
-
-	*t = KeyPair{
-		Pubs: pubs,
-		Priv: priv,
-		Idx:  s.Idx,
-	}
-
-	return nil
+	cspec := (*C.ringsig_keypair_extern_t)(unsafe.Pointer(&spec))
+	C.ringsig_sign_b64(cspec, cmsg, C.int(len(msg)), csig)
+	return C.GoString((*C.char)(csig))
 }

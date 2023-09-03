@@ -97,18 +97,16 @@ func (v *VerificationServer) certSign(c echo.Context) error {
 
 	sigb64 := c.Request().Header.Get("signature")
 
-	//TODO: Remove it when client side wasm support is done.
+	if sigb64 == "" {
+		return c.JSON(bsig.Status(), bsig.Message())
+	}
 
-	if sigb64 != "HACK" {
-		if sigb64 == "" {
-			return c.JSON(bsig.Status(), bsig.Message())
-		}
+	ok, err := v.sm.Verify(req.Pub, sigb64)
 
-		ok, err := v.sm.Verify(req.Pub, sigb64)
+	// fmt.Printf(err.Error())
 
-		if !ok && err != nil {
-			return c.JSON(err.Status(), err.Message())
-		}
+	if !ok && err != nil {
+		return c.JSON(err.Status(), err.Message())
 	}
 
 	cert, err := v.cm.SignCSR(req.Pub)

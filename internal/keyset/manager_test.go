@@ -1,66 +1,58 @@
 package keyset
 
 import (
-	"encoding/base64"
 	"testing"
 
 	"github.com/Cealgull/Verify/pkg/keypair"
 	"github.com/stretchr/testify/assert"
-	"go.dedis.ch/kyber/v3/group/edwards25519"
-	"go.dedis.ch/kyber/v3/sign/anon"
 	"go.uber.org/zap"
 )
 
 var mgr *KeyManager
-var kp *keypair.KeyPair
 
 func TestNewKeyManager(t *testing.T) {
-
-	l, _ := zap.NewProduction()
-
-	mgr, _ = NewKeyManager(l.Sugar(), 16, 16)
-
 	assert.Equal(t, 16, mgr.cap)
-	assert.Equal(t, 16, mgr.nr_mem)
+	assert.Equal(t, 16, mgr.keyset.Nr_mem)
 	assert.Equal(t, 0, mgr.cnt)
 }
 
-func TestDispatch(t *testing.T) {
-	kp = mgr.Dispatch()
+func TestRenewKeySet(t *testing.T) {
+	mgr.renewKeySet()
+	assert.Equal(t, 0, mgr.cnt)
 }
 
-func TestVerify(t *testing.T) {
-	msg1 := "hello world"
-	msg2 := "goodbye world"
+func TestSign(t *testing.T) {
 
-	sigb64 := "abcdefg"
+	msg := "hello world"
 
-	valid, err := mgr.Verify(msg1, sigb64)
-	assert.False(t, valid)
-	assert.NotNil(t, err)
-	var _ = err.Status()
-	var _ = err.Message()
+	kp := mgr.Dispatch()
+	sig := keypair.RingSign(kp, msg)
 
-	sig := anon.Sign(edwards25519.NewBlakeSHA256Ed25519(), []byte(msg1), kp.Pubs, nil, kp.Idx, kp.Priv)
-	sigb64 = base64.StdEncoding.EncodeToString(sig)
+	ok, err := mgr.Verify(msg, "[?/]")
+	assert.False(t, ok)
+	assert.IsType(t, &SignatureDecodeError{}, err)
 
-	valid, _ = mgr.Verify(msg1, sigb64)
-	assert.True(t, valid)
-	assert.Equal(t, 1, mgr.cnt)
-
-	valid, err = mgr.Verify(msg2, sigb64)
-	assert.False(t, valid)
 	var _ = err.Status()
 	var _ = err.Message()
 
 	mgr.cnt = 15
-	valid, _ = mgr.Verify(msg1, sigb64)
-	assert.True(t, valid)
-	assert.Equal(t, 0, mgr.cnt)
+	ok, err = mgr.Verify(msg, sig)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+
+	ok, err = mgr.Verify("[?/]", sig)
+	assert.False(t, ok)
+	assert.IsType(t, &SignatureVerificationError{}, err)
+
+	var _ = err.Status()
+	var _ = err.Message()
 
 }
 
-func TestRenew(t *testing.T) {
-	mgr.renewKeySet()
-	assert.Equal(t, 0, mgr.cnt)
+func TestMain(m *testing.M) {
+
+	l, _ := zap.NewProduction()
+	mgr, _ = NewKeyManager(l.Sugar(), 16, 16)
+
+	m.Run()
 }
